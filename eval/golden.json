@@ -1,0 +1,555 @@
+{
+  "field": "computer science",
+  "pairs": [
+    {
+      "query": "What time and storage complexity does the naive algorithm for betweenness centrality require?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 1176,
+        "end": 1306,
+        "exact": "the naive algorithm requires O(N 3 ) time and O(N 2 ) storage, regardless of the algorithms implemented to find the shortest paths",
+        "prefix": "ork G with N nodes and M edges, ",
+        "suffix": ". A much faster algorithm propos"
+      }
+    },
+    {
+      "query": "What programming language and hardware were used for the numerical experiments?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 10587,
+        "end": 10691,
+        "exact": "Algorithms are coded in C and run on a PC with an Intel Core 2 Quad CPU (2.66 GHz, 6 Mb) and 6 Gb of RAM",
+        "prefix": " then tested on these networks. ",
+        "suffix": ", all the following reported run"
+      }
+    },
+    {
+      "query": "How much faster is the VN algorithm than Brandes' algorithm at a network size of 50,000?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 11691,
+        "end": 11850,
+        "exact": "When the network size is 50,000, the VN algorithm is 3 and 1.5 times faster than the Brandes' algorithm, for average network degrees of 2 and 10, respectively.",
+        "prefix": "hen the network size increases. ",
+        "suffix": " The above results reveal that t"
+      }
+    },
+    {
+      "query": "Under what network conditions does the VN algorithm fail to outperform Brandes' algorithm?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 12939,
+        "end": 13044,
+        "exact": "it can hardly outperform the Brandes' algorithm when the network is dense and weighted with large values.",
+        "prefix": "ity and weight of the networks, ",
+        "suffix": " What's more, the theoretical th"
+      }
+    },
+    {
+      "query": "What is the core idea behind representing weighted edges with virtual nodes?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 6841,
+        "end": 7049,
+        "exact": "an integer-weighted network can be broken down into a simple unweighted network with virtual nodes, such that the calculation of shortest paths in Step 1 can be solved as a breadth-first search (BFS) problem.",
+        "prefix": "m originates from the idea that ",
+        "suffix": " Algorithm 1: Brandes' algorithm"
+      }
+    },
+    {
+      "query": "What other shortest-path-based network properties could the VN algorithm generalize to?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 13466,
+        "end": 13660,
+        "exact": "the VN algorithm can easily be generalized to calculate other shortest path based network properties, such as closeness centrality [33], graph centrality [34], stress centrality [35], and so on.",
+        "prefix": "me in many scenarios. Moreover, ",
+        "suffix": " We henceforth recommend that ne"
+      }
+    },
+    {
+      "query": "What assumption does the analysis make about self loops in the network?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 2906,
+        "end": 2980,
+        "exact": "we consider strongly connected networks [22] with no self loops (acyclic).",
+        "prefix": " for the purpose of this study, ",
+        "suffix": " Let W ~fw ij ,1\u0192i,j\u0192Ng be the w"
+      }
+    },
+    {
+      "query": "Why is removing high-betweenness-centrality nodes considered harmful to network robustness?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 4061,
+        "end": 4259,
+        "exact": "in the study of networks vulnerability to attacks, the removal of nodes with the highest betweenness centrality is shown to be one of the most harmful strategies that can break down the networks [8]",
+        "prefix": "e network [13,23]. For example, ",
+        "suffix": ". A straightforward way of calcu"
+      }
+    },
+    {
+      "query": "How many virtual nodes are inserted when replacing the example edges e_AC and e_BC?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 7244,
+        "end": 7360,
+        "exact": "edge e AC and e BC are replaced by 3 and 2 unit edge segments with two and one virtual nodes inserted, respectively.",
+        "prefix": " virtual nodes. We can see that ",
+        "suffix": " The number of virtual nodes to "
+      }
+    },
+    {
+      "query": "How many simulations were averaged to obtain the reported running times?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 10693,
+        "end": 10769,
+        "exact": "all the following reported running times are the average of 100 simulations.",
+        "prefix": ".66 GHz, 6 Mb) and 6 Gb of RAM, ",
+        "suffix": " It is intuitive that when seldo"
+      }
+    },
+    {
+      "query": "How many studies did the Xie et al. survey on blockchain security threats cover?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 3651,
+        "end": 3735,
+        "exact": "The review starts with a survey conducted by Xie et al., comprising 56 studies [17].",
+        "prefix": "tributed software applications. ",
+        "suffix": " The authors performed a systema"
+      }
+    },
+    {
+      "query": "What three criteria did Smith's survey propose as success predictors for blockchain-based data management projects?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 4235,
+        "end": 4375,
+        "exact": "The authors suggested three criteria as success predictors for blockchain-based data management projects: dependability, security and trust.",
+        "prefix": "t its benefits and limitations. ",
+        "suffix": " Meng et al. [18] presented a re"
+      }
+    },
+    {
+      "query": "What tool converts software source code into a sequence diagram in the proposed system?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 9194,
+        "end": 9292,
+        "exact": "Sequence Diagram Generator: A tool used to convert the software source code to a sequence diagram.",
+        "prefix": "ctions. \u2022 Off-chain resources \u2022 ",
+        "suffix": " \u2022 Behaviours Extractor: A tool "
+      }
+    },
+    {
+      "query": "What programming language and framework were used to write and deploy the system's smart contracts?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 12139,
+        "end": 12354,
+        "exact": "The system smart contracts were written using the Solidity programming language, where the truffle framework, an Ethereum smart contract development tool, was used to test, compile and deploy system smart contracts.",
+        "prefix": "evel-1 and level-2 blockchains. ",
+        "suffix": " However, the obtained sequence "
+      }
+    },
+    {
+      "query": "What four metrics were used to evaluate Transaction and Query operations?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 15946,
+        "end": 16026,
+        "exact": "Transaction throughput, Query throughput, Transaction latency and Query latency.",
+        "prefix": "valuate the proposed framework: ",
+        "suffix": " In this performance test, we fo"
+      }
+    },
+    {
+      "query": "What does Blockchain Level 1 provide in the proposed framework?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 8648,
+        "end": 8760,
+        "exact": "Blockchain Level 1: Provides a decentralised infrastructure for storing and managing trusted software behaviour.",
+        "prefix": " the software execution file. \u2022 ",
+        "suffix": " \u2022 On-chain resources \u2022 Blockcha"
+      }
+    },
+    {
+      "query": "What data structure is used to store trusted and run-time software behaviour for efficient retrieval?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 10861,
+        "end": 11009,
+        "exact": "For efficient data retrieval and validation, trusted software behaviour and run-time software behaviour are each stored in a mapping data structure.",
+        "prefix": "ftware behaviour, respectively. ",
+        "suffix": " A mapping is a hash table data "
+      }
+    },
+    {
+      "query": "Why are distributed systems considered superior to centralised systems according to the introduction?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 104,
+        "end": 198,
+        "exact": "distributed systems have superior reliability, availability and incremental scaling potential.",
+        "prefix": "stems. This is sensible because ",
+        "suffix": " Component-based distributed sys"
+      }
+    },
+    {
+      "query": "What conditions justify using blockchain for the proposed software behaviour verification mechanism?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 11578,
+        "end": 11822,
+        "exact": "there are multiple writers (software developer, software user and software tester), there is no Trusted Third Party (TTP), all writers are known, but some are not trusted, and finally, the software behaviour state should be publicly verifiable.",
+        "prefix": "ur has to be stored as a state, ",
+        "suffix": " Therefore, the proposed mechani"
+      }
+    },
+    {
+      "query": "What cloud platform provided the infrastructure for the level-1 and level-2 blockchains in the performance evaluation?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 15267,
+        "end": 15428,
+        "exact": "we utilised eight virtual machines running on Google Compute Engine (https://cloud.google.com) to provide the infrastructure for level-1 and level-2 blockchains.",
+        "prefix": "ance of the proposed framework, ",
+        "suffix": " We used Hyperledger Besu (https"
+      }
+    },
+    {
+      "query": "Which dataset was used for training and evaluating the intrusion detection model?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 14920,
+        "end": 15082,
+        "exact": "The study used the publicly accessible CSE-CIC-IDS2018 dataset, created by the University of New Brunswick for analyzing distributed Denial-Of-Service (DDoS) data",
+        "prefix": "alized (Fig 2). Data collection ",
+        "suffix": " and can be found at https://www"
+      }
+    },
+    {
+      "query": "How many nodes and edges does the constructed graph contain?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 22480,
+        "end": 22581,
+        "exact": "The graph consists of 14 different node features, 3 classes, 70554 nodes and 831794 undirected edges.",
+        "prefix": "ata into a computational graph. ",
+        "suffix": " Of the total number of edges, 1"
+      }
+    },
+    {
+      "query": "What accuracy did GConvTrans achieve on the held-out test set?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 23690,
+        "end": 23790,
+        "exact": "On the held-out test set, GConvTrans achieved a final loss of 0.1488 and accuracy of 96.94% (Fig 5).",
+        "prefix": "settling at 96.75% by epoch 29. ",
+        "suffix": " To probe the model's ability to"
+      }
+    },
+    {
+      "query": "What technique was used to oversample minority classes during preprocessing?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 14101,
+        "end": 14205,
+        "exact": "We apply SMOTE to oversample the minority classes as a mean to minimize skew towards the majority class.",
+        "prefix": " and numerical features scaled. ",
+        "suffix": " We the group the various rows i"
+      }
+    },
+    {
+      "query": "What is a key limitation of this study regarding dataset diversity?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 28120,
+        "end": 28203,
+        "exact": "the study only analyzed one dataset, which is the the CIC-IDS 2018 (Feb 14 subset).",
+        "prefix": "utation and storage shortfalls, ",
+        "suffix": " Consequently, the generalizabil"
+      }
+    },
+    {
+      "query": "What two neural network components are combined in the proposed hybrid architecture?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 29007,
+        "end": 29135,
+        "exact": "combining a graph neural network and a transformer encoder layer, for network intrusion detection systems (NIDS) in IoT devices.",
+        "prefix": "rid deep learning architecture, ",
+        "suffix": " A scientific experiment and eva"
+      }
+    },
+    {
+      "query": "How were rows grouped together when building the graph from tabular data?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 14206,
+        "end": 14304,
+        "exact": "We the group the various rows into clusters based on the time window and class in which they fall.",
+        "prefix": "kew towards the majority class. ",
+        "suffix": " Edges are then formed between e"
+      }
+    },
+    {
+      "query": "How many nearest neighbors are used to form edges between nodes in the graph construction?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 14305,
+        "end": 14389,
+        "exact": "Edges are then formed between each node (row or entry) and its closest 50 neighbors.",
+        "prefix": "w and class in which they fall. ",
+        "suffix": " Edges are deduplicated to ensur"
+      }
+    },
+    {
+      "query": "What happens to validation accuracy within the first five epochs of training?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 23238,
+        "end": 23390,
+        "exact": "training loss falls sharply from around 1.0 to 0.46, and validation loss from 0.93 to 0.33, a corresponding jump in validation accuracy from 57% to 86%.",
+        "prefix": ". Within the first five epochs, ",
+        "suffix": " Beyond epoch 5 the curves begin"
+      }
+    },
+    {
+      "query": "What role do the transformer encoder layers play in the hybrid architecture?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 24757,
+        "end": 24872,
+        "exact": "The transformer encoder layers integrate the global context from distant nodes using multiple self-attention heads.",
+        "prefix": "rough neighborhood aggregation. ",
+        "suffix": " In the processing of the transf"
+      }
+    },
+    {
+      "query": "Which five remote desktop protocols were compared in this study?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 9277,
+        "end": 9355,
+        "exact": "we compare the remote desktop protocols RDP, ICA, PCoIP, RFB, and Team-Viewer.",
+        "prefix": "perimental setup In this paper, ",
+        "suffix": " RDP is used in Microsoft Azure "
+      }
+    },
+    {
+      "query": "What hardware specification was used for the Amazon WorkSpaces PCoIP evaluation?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 14088,
+        "end": 14178,
+        "exact": "This is a Windows 7 installation on one CPU core running at 2.4 GHz and using 2 GB of RAM.",
+        "prefix": " template in Amazon WorkSpaces. ",
+        "suffix": " The second virtual server was c"
+      }
+    },
+    {
+      "query": "What tool was used to record user actions for the experiments?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 15397,
+        "end": 15502,
+        "exact": "We recorded user actions (keyboard presses and mouse movement events) using the Macro Recorder tool [42].",
+        "prefix": " changes to the desktop output. ",
+        "suffix": " The actions recorded were repla"
+      }
+    },
+    {
+      "query": "What method was used to generate synthetic FBM traffic traces?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 42295,
+        "end": 42427,
+        "exact": "we used the Random Midpoint Displacement (RMD) method, a fast and efficient generation method adequate for qualitative studies [66].",
+        "prefix": "ion techniques. For this paper, ",
+        "suffix": " For every combination of remote"
+      }
+    },
+    {
+      "query": "What metric is used to derive a Mean Opinion Score in this study's video quality comparison?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 7742,
+        "end": 7903,
+        "exact": "we compare the video stream at the source and destination and from a Peak Signal-to-Noise Ratio (PSNR) measurement, we conclude a Mean Opinion Score (MOS) value.",
+        "prefix": "to a lower quality. Conversely, ",
+        "suffix": " The MOS is a popular metric for"
+      }
+    },
+    {
+      "query": "Which cloud datacentre location was chosen for the remote desktop servers, and why?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 13833,
+        "end": 13945,
+        "exact": "We selected the Amazon datacentre in Ireland owing to its close location to our remote desktop clients in Spain.",
+        "prefix": "azon public cloud (Amazon EC2). ",
+        "suffix": " We created two similar virtual "
+      }
+    },
+    {
+      "query": "What three user profiles were defined to measure remote desktop performance?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 15160,
+        "end": 15268,
+        "exact": "we defined three user profiles similar to those in [40] [41]: office, web browsing, and video user profiles.",
+        "prefix": "nce of remote desktop services, ",
+        "suffix": " They present different degrees "
+      }
+    },
+    {
+      "query": "What method was used to estimate the Hurst parameter for remote desktop traffic?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 33265,
+        "end": 33359,
+        "exact": "In this paper, we use the variance aggregation plot, similar to many previous works [54] [58].",
+        "prefix": "t transform [64], among others. ",
+        "suffix": " Fig 9 displays the variance agg"
+      }
+    },
+    {
+      "query": "What was the maximum downstream link rate observed for the office user profile?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 26588,
+        "end": 26757,
+        "exact": "the downstream link rate approached 900 Kb/s when large changes occurred on the screen, for example, when a new document window was opened or a large image was inserted.",
+        "prefix": "was less than 100 Kb/s, whereas ",
+        "suffix": " Traffic behaviour was consisten"
+      }
+    },
+    {
+      "query": "What is the risk of using UDP transport for remote desktop protocols regarding packet size?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 37794,
+        "end": 37946,
+        "exact": "the remote desktop protocols that use UDP as a transport protocol (PCoIP and Team-Viewer) do not reach the maximum packet size that the path MTU allows.",
+        "prefix": "The most notable aspect is that ",
+        "suffix": " This could be related to an int"
+      }
+    },
+    {
+      "query": "What three main entities make up the proposed network model?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 30639,
+        "end": 30773,
+        "exact": "The proposed network model consisted of mainly three essential entities: the sensor/IoT device, the gateway node, and the edge server.",
+        "prefix": "ulnerable to potential threats. ",
+        "suffix": " The gateway node plays a critic"
+      }
+    },
+    {
+      "query": "Which two threat models does this research rely on?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 33872,
+        "end": 33979,
+        "exact": "This research utilizes the threat models established by Canetti-Krawczyk (CK) [62] and Dolev-Yao (DY) [63].",
+        "prefix": "data transmission. Threat model ",
+        "suffix": " According to these models, a sy"
+      }
+    },
+    {
+      "query": "What software toolkit was used to formally validate the proposed protocol?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 51836,
+        "end": 51941,
+        "exact": "involved simulating the proposed protocol using the esteemed software verification toolkit ProVerif [67].",
+        "prefix": "dom numbers cross-verification, ",
+        "suffix": " The summary of the results afte"
+      }
+    },
+    {
+      "query": "How long is the ECC key used to help resist replay attacks in the protocol?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 53305,
+        "end": 53476,
+        "exact": "the proposed protocol, fortified with a 160-bit long ECC key, 60-bit random numbers, secret keys, curve points, and unique identities, is designed to prevent such attacks.",
+        "prefix": "aunching a replay attack. Also, ",
+        "suffix": " The message, a random number in"
+      }
+    },
+    {
+      "query": "What three cryptographic primitives does the proposed authentication protocol utilize?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 56253,
+        "end": 56376,
+        "exact": "this article presents an authentication protocol that utilizes elliptic curve cryptography (ECC), SHA2, and XOR operations.",
+        "prefix": "oncerns effectively. Therefore, ",
+        "suffix": " The scheme offers dynamic key c"
+      }
+    },
+    {
+      "query": "What does the IoT device layer connect according to the edge-IoT ecosystem description?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 7761,
+        "end": 7842,
+        "exact": "The IoT device layer connects the real and virtual worlds to an edge server [13].",
+        "prefix": "and communication capabilities. ",
+        "suffix": " Node-layer. A crucial part of t"
+      }
+    },
+    {
+      "query": "Why is data secrecy considered essential rather than merely desirable in the edge-IoT security requirements?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 16224,
+        "end": 16328,
+        "exact": "Data secrecy is not just a desirable feature, but an essential one to prevent data from being disclosed.",
+        "prefix": " [24][25][26]. Confidentiality. ",
+        "suffix": " Many low-resource IoT applicati"
+      }
+    },
+    {
+      "query": "What does the middleware layer serve as in the IoT architecture?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 10144,
+        "end": 10239,
+        "exact": "The middleware layer serves as more than just a line between the network and application layers",
+        "prefix": "privacy [14]. Middleware layer. ",
+        "suffix": " in the IoT architecture; it act"
+      }
+    },
+    {
+      "query": "What curve and field does the gateway node select during the setup phase?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 41087,
+        "end": 41193,
+        "exact": "the gateway node (GWN) meticulously selects a curve E P (x, y) over a finite field F P and chooses a point",
+        "prefix": "p phase In this protocol phase, ",
+        "suffix": " \u03b1 on a curve. The gateway node "
+      }
+    },
+    {
+      "query": "What does the timestamp check at each round trip protect the protocol against?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 53228,
+        "end": 53298,
+        "exact": "which strongly prohibits the adversary from launching a replay attack.",
+        "prefix": "ach round trip of the protocol, ",
+        "suffix": " Also, the proposed protocol, fo"
+      }
+    }
+  ]
+}

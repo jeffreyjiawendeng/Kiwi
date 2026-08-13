@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title level="a" type="main">Structure Fidelity in Academic Retrieval</title>
+      </titleStmt>
+      <sourceDesc>
+        <biblStruct>
+          <analytic>
+            <author>
+              <persName><forename type="first">Alice</forename><surname>Chen</surname></persName>
+            </author>
+            <author>
+              <persName><forename type="first">Bob</forename><surname>Daniels</surname></persName>
+            </author>
+            <idno type="DOI">10.1000/example.tei</idno>
+          </analytic>
+          <monogr>
+            <imprint>
+              <date type="published" when="2026-03-01">March 2026</date>
+            </imprint>
+          </monogr>
+        </biblStruct>
+      </sourceDesc>
+    </fileDesc>
+  </teiHeader>
+  <text xml:lang="en">
+    <body>
+      <div>
+        <head n="1">Introduction</head>
+        <p>Retrieval-augmented generation performs poorly on research documents.</p>
+      </div>
+      <div>
+        <head n="2">Methods</head>
+        <div>
+          <head n="2.1">Participants</head>
+          <p>We evaluated forty papers drawn from a frozen corpus.</p>
+        </div>
+        <figure>
+          <figDesc>Pipeline overview from ingestion to retrieval.</figDesc>
+        </figure>
+        <figure type="table">
+          <figDesc>Recall at k for each chunking strategy.</figDesc>
+        </figure>
+      </div>
+      <div>
+        <head n="3">Results</head>
+        <p>Section-aware chunking improved Recall@5 over fixed-size splitting.</p>
+      </div>
+    </body>
+    <back>
+      <div type="references">
+        <listBibl>
+          <biblStruct xml:id="b0">
+            <analytic>
+              <title level="a">Vision-Guided Chunking</title>
+              <author>
+                <persName><forename type="first">Lin</forename><surname>Zhao</surname></persName>
+              </author>
+            </analytic>
+            <monogr>
+              <imprint>
+                <date type="published" when="2025">2025</date>
+              </imprint>
+            </monogr>
+            <idno type="DOI">10.1000/example.vgc</idno>
+          </biblStruct>
+          <biblStruct xml:id="b1">
+            <analytic>
+              <title level="a">SF-RAG: Structure Fidelity for Academic QA</title>
+              <author>
+                <persName><forename type="first">Priya</forename><surname>Nair</surname></persName>
+              </author>
+            </analytic>
+            <monogr>
+              <imprint>
+                <date type="published" when="2026">2026</date>
+              </imprint>
+            </monogr>
+            <idno type="arXiv">2602.13647</idno>
+          </biblStruct>
+        </listBibl>
+      </div>
+    </back>
+  </text>
+</TEI>

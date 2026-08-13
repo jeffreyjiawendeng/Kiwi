@@ -1,0 +1,32 @@
+{
+  "field": "computer science",
+  "license": "CC BY 4.0",
+  "source": "PLOS ONE (https://journals.plos.org/plosone/)",
+  "papers": [
+    {
+      "file": "blockchain-testing.pdf",
+      "doi": "10.1371/journal.pone.0280038",
+      "title": "A security testing mechanism for detecting attacks in distributed software applications using blockchain"
+    },
+    {
+      "file": "intrusion-detection.pdf",
+      "doi": "10.1371/journal.pone.0340997",
+      "title": "Network intrusion detection using a hybrid graph-based convolutional network and transformer architecture"
+    },
+    {
+      "file": "daas-protocols.pdf",
+      "doi": "10.1371/journal.pone.0207512",
+      "title": "Remote access protocols for Desktop-as-a-Service solutions"
+    },
+    {
+      "file": "betweenness-centrality.pdf",
+      "doi": "10.1371/journal.pone.0022557",
+      "title": "Fast Computing Betweenness Centrality with Virtual Nodes on Large Sparse Networks"
+    },
+    {
+      "file": "edge-iot-ecc.pdf",
+      "doi": "10.1371/journal.pone.0322131",
+      "title": "Security importance of edge-IoT ecosystem: An ECC-based authentication scheme"
+    }
+  ]
+}

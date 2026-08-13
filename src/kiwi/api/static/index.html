@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kiwi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div id="brand">Kiwi</div>
+      <div id="project-name">No project open</div>
+      <button id="switch-project-btn" class="btn-link">Switch Project</button>
+    </header>
+
+    <div id="body">
+      <nav id="sidebar" hidden>
+        <button class="nav-item" data-view="ask">Ask</button>
+
+        <div class="nav-group">
+          <div class="nav-group-title">Papers</div>
+          <ul id="papers-list" class="nav-list"></ul>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">
+            Notes
+            <button class="btn-icon" id="new-note-btn" title="New note">+</button>
+          </div>
+          <ul id="notes-list" class="nav-list"></ul>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-group-title">
+            Drafts
+            <button class="btn-icon" id="new-draft-btn" title="New draft">+</button>
+          </div>
+          <ul id="drafts-list" class="nav-list"></ul>
+        </div>
+      </nav>
+
+      <main id="main">
+        <div id="view-launcher" class="view">
+          <h1>Open a project</h1>
+          <p class="muted">Kiwi is local-first: point it at a folder on this machine. A new one is created if it doesn't exist yet.</p>
+          <form id="open-project-form">
+            <label>Project folder path
+              <input type="text" id="open-project-path" placeholder="C:\Users\you\Research\MyProject.kiwi" required />
+            </label>
+            <label>Name (optional)
+              <input type="text" id="open-project-name" placeholder="My Project" />
+            </label>
+            <button type="submit">Open / Create</button>
+          </form>
+
+          <h2>Recent projects</h2>
+          <ul id="recent-projects" class="recent-list"></ul>
+        </div>
+
+        <div id="view-paper" class="view" hidden></div>
+        <div id="view-note" class="view" hidden></div>
+        <div id="view-draft" class="view" hidden></div>
+        <div id="view-ask" class="view" hidden></div>
+      </main>
+    </div>
+
+    <footer id="statusbar">
+      <span id="status-left"></span>
+      <span id="status-right"></span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
