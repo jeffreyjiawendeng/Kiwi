@@ -8,13 +8,20 @@ breaks to single spaces, so paragraphs cannot be recovered here.
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Sequence
 
 from kiwi.types import Anchor, Chunk, Document, Health, Section
 
-TARGET_TOKENS = 512
-MIN_TOKENS = 256
+# The band a chunk aims for. A section under the target is left whole; one
+# over it is packed sentence by sentence until each span reaches the
+# minimum. ``KIWI_CHUNK_TOKENS`` sets the target, and the minimum tracks it
+# at half, which keeps the band's shape when the target moves. Changing
+# either requires re-indexing, since chunk boundaries move with them. See
+# eval/README.md for the measured settings.
+TARGET_TOKENS = 768
+MIN_TOKENS = 384
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 _CONTEXT_CHARS = 32
 
@@ -51,7 +58,7 @@ def _own_content_spans(start: int, end: int, children: Sequence[Section]) -> lis
     return spans
 
 
-def _split_oversized(text_start: int, text: str) -> list[tuple[int, int]]:
+def _split_oversized(text_start: int, text: str, min_tokens: int) -> list[tuple[int, int]]:
     """Greedily pack sentences into spans within the target token band."""
     sentence_bounds: list[tuple[int, int]] = []
     cursor = 0
@@ -72,7 +79,7 @@ def _split_oversized(text_start: int, text: str) -> list[tuple[int, int]]:
             span_start = s_start
         span_end = s_end
         token_count += _approx_tokens(sentence)
-        if token_count >= MIN_TOKENS:
+        if token_count >= min_tokens:
             spans.append((text_start + span_start, text_start + span_end))
             span_start, span_end, token_count = None, None, 0
     if span_start is not None and span_end is not None:
@@ -80,7 +87,9 @@ def _split_oversized(text_start: int, text: str) -> list[tuple[int, int]]:
     return spans
 
 
-def _split_if_needed(text: str, start: int, end: int) -> list[tuple[int, int]]:
+def _split_if_needed(
+    text: str, start: int, end: int, target_tokens: int, min_tokens: int
+) -> list[tuple[int, int]]:
     raw = text[start:end]
     stripped = raw.strip()
     if not stripped:
@@ -88,15 +97,20 @@ def _split_if_needed(text: str, start: int, end: int) -> list[tuple[int, int]]:
     offset = raw.index(stripped)
     span_start = start + offset
     span_end = span_start + len(stripped)
-    if _approx_tokens(stripped) <= TARGET_TOKENS:
+    if _approx_tokens(stripped) <= target_tokens:
         return [(span_start, span_end)]
-    return _split_oversized(span_start, stripped)
+    return _split_oversized(span_start, stripped, min_tokens)
 
 
 class SectionAwareChunker:
     """Splits a Document along its section tree rather than fixed windows."""
 
     name = "section-aware"
+
+    def __init__(self, target_tokens: int | None = None, min_tokens: int | None = None) -> None:
+        configured = target_tokens or int(os.environ.get("KIWI_CHUNK_TOKENS") or TARGET_TOKENS)
+        self.target_tokens = configured
+        self.min_tokens = min_tokens if min_tokens is not None else configured // 2
 
     def health(self) -> Health:
         return Health(ok=True, detail="section-aware chunker")
@@ -109,7 +123,12 @@ class SectionAwareChunker:
 
         top_level = [s for s in sections if s.level == 1]
         for gap_start, gap_end in _own_content_spans(0, len(text), top_level):
-            raw_spans += [(s, e, "") for s, e in _split_if_needed(text, gap_start, gap_end)]
+            raw_spans += [
+                (s, e, "")
+                for s, e in _split_if_needed(
+                    text, gap_start, gap_end, self.target_tokens, self.min_tokens
+                )
+            ]
 
         for section in sections:
             children = _direct_children(section, sections)
@@ -121,7 +140,9 @@ class SectionAwareChunker:
                 # the heading already prefixes every chunk under this path.
                 if children and text[gap_start:gap_end].strip() == section.title:
                     continue
-                spans = _split_if_needed(text, gap_start, gap_end)
+                spans = _split_if_needed(
+                    text, gap_start, gap_end, self.target_tokens, self.min_tokens
+                )
                 raw_spans += [(s, e, section.path) for s, e in spans]
 
         raw_spans.sort(key=lambda span: span[0])

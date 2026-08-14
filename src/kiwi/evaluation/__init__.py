@@ -14,8 +14,11 @@ from kiwi.evaluation.metrics import (
     locate,
     rank_of_match,
 )
+from kiwi.evaluation.revision import RevisionMetrics, evaluate_revisions
 
 __all__ = [
+    "RevisionMetrics",
+    "evaluate_revisions",
     "DEFAULT_K_VALUES",
     "AlignmentMetrics",
     "AlignmentPair",

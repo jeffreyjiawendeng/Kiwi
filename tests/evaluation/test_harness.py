@@ -191,3 +191,13 @@ def test_evaluate_configuration_hybrid_mode_finds_passage(tmp_path: Path) -> Non
     )
 
     assert result.metrics.recall_at[1] == 1.0
+
+
+def test_fusion_weight_is_a_parameter_of_a_run() -> None:
+    # The harness once read the shipped weighting through a from-import,
+    # which bound it at module load and made a weighting unmeasurable.
+    import inspect
+
+    from kiwi.evaluation import evaluate_configuration
+
+    assert "weights" in inspect.signature(evaluate_configuration).parameters

@@ -7,7 +7,7 @@ Retrieval quality is measured against a golden set of query-passage pairs, indep
 Five open-access computer science papers from PLOS ONE, all CC BY 4.0. See `corpus/manifest.json` for titles and DOIs. PDFs are stored in `corpus/`; the ingested workspace (`workspace.kiwi/`) is derived and regenerated on demand:
 
 ```bash
-docker run --rm -p 8070:8070 lfoppiano/grobid:0.8.1
+docker run --rm -p 8070:8070 -e JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport lfoppiano/grobid:0.8.1
 uv run kiwi ingest eval/corpus --project eval/workspace.kiwi
 ```
 
@@ -50,9 +50,22 @@ Retrieval figures are the same on CPU and GPU. Alignment figures depend on the m
 | Fixed-size | 0.680 | 0.920 | 0.940 | 0.980 | 0.797 |
 | Section-aware | 0.720 | 0.940 | 0.960 | 1.000 | 0.827 |
 
+The three tables above were measured at a 512-token target. At the 768-token target that now ships, section-aware chunking reaches Recall@1 0.760 and MRR 0.856 under hybrid retrieval. See "Chunk size" below.
+
 Under BM25, the two chunkers score within noise of each other: keyword overlap does not depend much on where a chunk boundary falls. Under vector retrieval, section-aware chunking outperforms fixed-size chunking on every metric (Recall@1 0.500 vs. 0.400, MRR 0.667 vs. 0.577), consistent with pairing a layout-preserving parser with a structure-aware chunker. Unweighted vector retrieval trails BM25 on every metric.
 
 Hybrid retrieval combines BM25 and vector rankings by Reciprocal Rank Fusion. An unweighted fusion beats vector-only retrieval but still trails BM25 (section-aware MRR 0.767 vs. 0.818): a weaker ranker voting equally against a stronger one's correct top result reduces accuracy. Weighting BM25 three times over vector matches or exceeds BM25 on every Recall@k and MRR for section-aware chunking, and improves every metric for fixed-size chunking. Research papers are dense with exact terminology: method names, metric names, and identifiers that BM25 finds directly and that embeddings often only approximate. The weighting reflects that property of the domain, though it was chosen by measuring against this one golden set and should be re-checked as the golden set grows.
+
+The weighting was re-swept at the 768-token chunk target, since it had been chosen when chunks were smaller and the vector path was weaker:
+
+| BM25 weight | Recall@1 | MRR |
+|---|---|---|
+| 1.0 | 0.680 | 0.813 |
+| 1.5 | 0.700 | 0.824 |
+| 2.0 | 0.760 | 0.853 |
+| 2.5 to 6.0 | 0.760 | 0.856 |
+
+Everything from 2.5 upward is indistinguishable on this set, so the shipped 3.0 sits on a plateau rather than at a peak. Equal weighting still costs four points of MRR, which is the same effect measured at the smaller chunk target: a weaker ranker voting equally against a stronger one's correct top result reduces accuracy.
 
 ## Comparison to published results
 
@@ -76,9 +89,11 @@ uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/alignment.jso
 
 | | Accuracy | Recall 2 | Recall 1 | Recall 0 | False endorsement | Missed support |
 |---|---|---|---|---|---|---|
-| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.851 | 0.875 | 0.700 | 0.923 | 0.000 | 0.125 |
+| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.894 | 0.917 | 0.700 | 1.000 | 0.000 | 0.083 |
 | `DeBERTa-v3-base-mnli-fever-anli` (CPU) | 0.809 | 0.875 | 0.800 | 0.692 | 0.000 | 0.125 |
 | `DeBERTa-v3-base-mnli-fever-anli-scifact-citint` | 0.787 | 0.875 | 0.800 | 0.615 | 0.043 | 0.125 |
+
+The first row is measured at the shipped 768-token chunk target. The other two were measured at 512 and are not re-run here, so they compare models rather than targets.
 
 A score of 2 is displayed without a warning, so an unsupported claim scored 2 reaches the reader unmarked. No model that produces one is used.
 
@@ -97,9 +112,39 @@ Both halves of that rule were measured. The alternatives, on the same 47 pairs:
 
 Taking the best score across passages is the worst rule for detecting contradiction: a single entailing passage outranks a contradicting one, so recall on label 0 falls to 0.077. Selecting the least neutral passage scores highest overall but endorses two contradicted claims, one asserting a node count the paper contradicts and one naming an operating system the paper does not use. Requiring the highest-ranked passage to agree before reporting support removes both while keeping most of the gain in contradiction recall.
 
-Contradiction recall remains the weakest figure. An oracle that picks the best of every passage in the cited document reaches 0.936 accuracy and 0.769 recall on label 0, so the remaining gap is in selecting the passage rather than in judging it.
+Contradiction recall was the weakest figure at a 512-token chunk target, at 0.923. At the 768-token target it reaches 1.000 on this set. An oracle that picks the best of every passage in the cited document reaches 0.936 accuracy, so passage selection remains where the rest of the gap sits.
 
 Scoring the claim against several passages and lowering the score when any of them contradicts it was also measured across thresholds from 0.50 to 0.95. Every threshold reduced accuracy, because supported claims were downgraded more often than contradictions were caught.
+
+## Chunk size
+
+`TARGET_TOKENS` in `kiwi.components.chunk.section_aware` sets the band a chunk aims for, and `MIN_TOKENS` tracks it at half. `KIWI_CHUNK_TOKENS` overrides both. Changing either requires deleting `.kiwi/` and re-indexing, because chunk boundaries move with them.
+
+Six targets were swept against the golden set, section-aware chunking, on the same five papers:
+
+| Target | Chunks | BM25 MRR | Hybrid MRR | Hybrid Recall@1 |
+|---|---|---|---|---|
+| 128 | 402 | 0.782 | 0.769 | 0.660 |
+| 256 | 230 | 0.829 | 0.818 | 0.720 |
+| 384 | 171 | 0.817 | 0.817 | 0.720 |
+| 512 | 127 | 0.818 | 0.827 | 0.720 |
+| **768** | **93** | **0.834** | **0.856** | **0.760** |
+| 1024 | 87 | 0.832 | 0.860 | 0.760 |
+
+Retrieval alone cannot settle this. A hit is decided by span overlap, so a larger chunk covers more text and is likelier to overlap the golden span whatever its quality. The same targets were therefore measured on the labelled claim sets, where the aligner scores a claim against the retrieved passage and chunk size carries no such advantage:
+
+| Target | Direct accuracy | Contradiction recall | Missed support | Hedged accuracy |
+|---|---|---|---|---|
+| 256 | 0.872 | 0.923 | 0.167 | |
+| 512 | 0.851 | 0.923 | 0.125 | 0.583 |
+| **768** | **0.894** | **1.000** | **0.083** | **0.708** |
+| 1024 | 0.894 | 1.000 | 0.083 | 0.667 |
+
+768 and 1024 tie on the direct claims and both reach every contradiction in the set. 768 is ahead on the hedged claims, and produces shorter evidence passages, so it is the shipped target. Attribution is unchanged at 0.824 accuracy across 512, 768, and 1024.
+
+Two independent measurements move together here, which is what the retrieval figures on their own could not establish. The samples remain small: the direct-set gain is two claims of 47, and contradiction recall moving from 0.923 to 1.000 is one claim of 13.
+
+The fixed-size baseline was measured at the same target and does not benefit in the same way: 0.802 BM25 MRR and 0.735 hybrid, against 0.834 and 0.856 for section-aware chunking. Larger windows help when they follow section boundaries, not when they ignore them.
 
 ## Alignment model
 
@@ -181,13 +226,20 @@ Intent detection is off unless `KIWI_INTENT_MODEL` names a classifier. Four appr
 
 Without a classifier, every claim is treated as evidence and scored, and intent is set by hand through `PUT /align/intent` or the Drafts view. A hand-set intent overrides a detected one and persists across runs.
 
+## Revision quality
+
+`kiwi evaluate-revisions` measures whether a suggested rewrite repairs the claim it was proposed for. Each claim labelled 0 is rewritten against the evidence retrieved for it and re-scored, and the run reports four shares: repaired, hedged into the middle score, still contradicted, and rewritten so short that the assertion was dropped.
+
+The aligner is both the source of the flag and the judge of the repair, so a rewrite that games the aligner counts as repaired. Two guards narrow that. A rewrite keeping less than half the original length is counted as having dropped the assertion rather than corrected it, and hedging into a score of 1 is reported separately from reaching support.
+
+No figures are recorded here. Producing a rewrite requires a Generator, and the measurement is only meaningful against the model a reader would actually run.
+
 ## Limitations
 
 - 50 pairs is a first pass on one field (computer science) and five papers. Treat differences smaller than a few points as noise.
 - Each paper is represented by exactly 10 pairs regardless of its length or complexity, so a chunker or retrieval-mode effect specific to one paper's structure could be masked or exaggerated by its other nine pairs.
 - The 3x hybrid weight was chosen by measuring against this golden set. It should be re-checked as the golden set grows or a second field is added.
-- Chunk size (the 256 to 512 token target band) was not swept; both chunkers used the default (512).
-- Generation is not evaluated here.
+- Generation is not evaluated here, and no revision figures are recorded: both require a configured Generator.
 - The alignment set has 47 pairs across one field, and its claims are authored rather than drawn from published citing sentences. Contradiction recall in particular rests on 13 pairs.
 - Alignment is measured against the retrieved passages rather than the whole cited document.
 - The alignment claims and their labels were written by one person, so the figures measure agreement with a single reader rather than with a consensus.

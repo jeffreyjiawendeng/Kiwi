@@ -30,8 +30,10 @@ uv sync --all-extras --dev
 Start GROBID:
 
 ```bash
-docker run --rm -p 8070:8070 lfoppiano/grobid:0.8.1
+docker run --rm -p 8070:8070 -e JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport lfoppiano/grobid:0.8.1
 ```
+
+`JAVA_TOOL_OPTIONS` is required on Docker 29 and later. Without it the container exits on startup with a `CgroupInfo.getMountPoint()` null pointer, because the bundled JDK cannot read the newer runtime's cgroup layout.
 
 ### GPU
 
@@ -85,6 +87,7 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `KIWI_EMBED_MODEL` | Embedding model. Defaults to `nomic-ai/nomic-embed-text-v1.5`. Changing it requires deleting `.kiwi/` and re-indexing, because stored vectors carry the width of the model that produced them. |
 | `KIWI_INTENT_MODEL` | Citation intent classifier labelled `background`, `method`, and `result`. Unset, every claim is treated as evidence and scored. |
 | `KIWI_NO_ALIGN` | Disables claim alignment. |
+| `KIWI_CHUNK_TOKENS` | Chunk size target. Defaults to 768. Changing it requires deleting `.kiwi/` and re-indexing, because chunk boundaries move with it. A project indexed under an earlier default keeps its existing chunks until it is re-indexed. |
 | `KIWI_DEVICE` | Device models run on: `auto` (default), `cuda`, `mps`, or `cpu`. A device that is named but unavailable falls back to the CPU. |
 | `KIWI_AUTHOR` | Identity that operations are recorded against and permissions are checked for. Defaults to `local`. |
 | `KIWI_DATA_DIR` | Overrides where the known-projects registry is stored. |
@@ -111,6 +114,7 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `kiwi health` | Reports the configured components, the device models run on, and whether GROBID is reachable. |
 | `kiwi evaluate PROJECT [--golden PATH]` | Measures retrieval quality against a golden query set. |
 | `kiwi evaluate-alignment PROJECT [--labelled PATH]` | Measures alignment scoring against a labelled claim set. |
+| `kiwi evaluate-revisions PROJECT [--labelled PATH]` | Measures whether suggested rewrites repair the claims flagged as unsupported. |
 | `kiwi serve [--host HOST] [--port PORT]` | Runs the HTTP API and the web interface. |
 
 Run `kiwi COMMAND --help` for the full option list of any command.
@@ -210,9 +214,9 @@ Retrieval quality is measured against a golden set of 50 hand-verified query-pas
 
 | Retrieval mode | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
 |---|---|---|---|---|---|
-| BM25 | 0.720 | 0.900 | 0.920 | 1.000 | 0.818 |
-| Vector | 0.500 | 0.840 | 0.920 | 0.960 | 0.667 |
-| Hybrid (default) | 0.720 | 0.940 | 0.960 | 1.000 | 0.827 |
+| BM25 | 0.740 | 0.920 | 0.920 | 1.000 | 0.834 |
+| Vector | 0.520 | 0.840 | 0.940 | 0.980 | 0.684 |
+| Hybrid (default) | 0.760 | 0.940 | 0.960 | 1.000 | 0.856 |
 
 Hybrid retrieval fuses BM25 and vector rankings by Reciprocal Rank Fusion, weighting BM25 three times over vector, and is the default whenever an Embedder is configured. See [eval/README.md](eval/README.md) for the corpus, method, and full results.
 
@@ -226,14 +230,14 @@ Alignment scoring is measured against 47 labelled claim-citation pairs written a
 
 | | Accuracy | Recall 2 | Recall 1 | Recall 0 | False endorsement | Missed support |
 |---|---|---|---|---|---|---|
-| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.851 | 0.875 | 0.700 | 0.923 | 0.000 | 0.125 |
+| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.894 | 0.917 | 0.700 | 1.000 | 0.000 | 0.083 |
 | `DeBERTa-v3-base-mnli-fever-anli` (CPU) | 0.809 | 0.875 | 0.800 | 0.692 | 0.000 | 0.125 |
 
 False endorsement is the share of unsupported claims scored 2. A score of 2 is shown without a warning, so a false endorsement leaves an unsupported claim unmarked. The default model is the one that produces none on this set.
 
-Five passages are retrieved per claim. The one scored is the passage the model is least neutral about, and a score of 2 additionally requires the highest-ranked passage to agree.
+Five passages are retrieved per claim. The one scored is the passage the model is least neutral about, and a score of 2 additionally requires the highest-ranked passage to agree. Chunk size was swept against both the golden set and the labelled claim sets; 768 tokens is the measured target and `KIWI_CHUNK_TOKENS` overrides it.
 
-`kiwi align --deep` splits a compound claim into its assertions and scores each against evidence retrieved for it. On a second set of 24 compound and hedged claims, the deep check raises accuracy from 0.583 to 0.625 and recall on supported claims from 0.500 to 0.625. Both figures are lower than on direct claims, where the two depths agree exactly. See [eval/README.md](eval/README.md) for the measurements behind these rules and for where the scoring is weakest.
+`kiwi align --deep` splits a compound claim into its assertions and scores each against evidence retrieved for it. A second set of 24 compound and hedged claims scores 0.708, well below the direct claims. See [eval/README.md](eval/README.md) for the measurements behind these rules and for where the scoring is weakest.
 
 Attribution is scored on a separate binary scale and measured against 17 further pairs: accuracy 0.824, with 2 of 11 claims wrongly credited. Entailment does not separate using a technique from originating it, so a claim naming a method the paper merely applies can be credited to it. See [eval/README.md](eval/README.md).
 

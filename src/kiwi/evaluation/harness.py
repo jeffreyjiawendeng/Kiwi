@@ -5,6 +5,7 @@ each configuration is measured against a frozen corpus and golden set.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -43,6 +44,7 @@ def evaluate_configuration(
     embedder: Embedder | None,
     retrieval_mode: RetrievalMode = "bm25",
     k_values: tuple[int, ...] = DEFAULT_K_VALUES,
+    weights: Sequence[float] | None = None,
 ) -> ConfigResult:
     """Chunk and index every document with ``chunker``, then retrieve for
     every golden query under ``retrieval_mode`` and score the ranks. A
@@ -52,6 +54,10 @@ def evaluate_configuration(
     ``retrieval_mode`` is independent of ``embedder`` so the same indexed
     corpus can be scored under bm25/vector/hybrid without re-chunking.
     "vector" and "hybrid" require ``embedder`` to be given.
+
+    ``weights`` sets the hybrid fusion weighting for this run, defaulting
+    to the shipped one, so a weighting can be measured without rebuilding
+    the retriever.
     """
     if retrieval_mode != "bm25" and embedder is None:
         raise ValueError(f"retrieval_mode={retrieval_mode!r} requires an embedder")
@@ -72,7 +78,7 @@ def evaluate_configuration(
     ranks: list[int | None] = []
     for pair in golden:
         k = max(k_values)
-        hits = _retrieve(store, embedder, pair.query, k, retrieval_mode)
+        hits = _retrieve(store, embedder, pair.query, k, retrieval_mode, weights)
         golden_anchor = locate(pair, documents_by_id[pair.document_id])
         ranks.append(rank_of_match(golden_anchor, hits))
 
@@ -85,6 +91,7 @@ def _retrieve(
     query: str,
     k: int,
     mode: RetrievalMode,
+    weights: Sequence[float] | None = None,
 ) -> list[Hit]:
     if mode == "bm25":
         return store.search_text(query, k=k)
@@ -94,4 +101,5 @@ def _retrieve(
     candidates = max(k * _CANDIDATE_MULTIPLIER, _MIN_CANDIDATES)
     vector_hits = store.search_vector(embedder.embed_query(query), k=candidates)
     text_hits = store.search_text(query, k=candidates)
-    return reciprocal_rank_fusion(vector_hits, text_hits, k=k, weights=HYBRID_WEIGHTS)
+    fusion_weights = HYBRID_WEIGHTS if weights is None else weights
+    return reciprocal_rank_fusion(vector_hits, text_hits, k=k, weights=fusion_weights)

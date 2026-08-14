@@ -14,7 +14,7 @@ The suite must pass on a clean checkout with no external services running. Tests
 Ingestion needs a running GROBID service.
 
 ```bash
-docker run --rm -p 8070:8070 lfoppiano/grobid:0.8.1
+docker run --rm -p 8070:8070 -e JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport lfoppiano/grobid:0.8.1
 ```
 
 Run the full test suite, including GROBID-backed tests:

@@ -529,6 +529,55 @@ def show_process_record(
             typer.secho(f"  + {entry['proposed'][:100]}", fg="green")
 
 
+@app.command("evaluate-revisions")
+def evaluate_revisions_command(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    labelled: Path = typer.Option(
+        Path("eval/alignment.json"), "--labelled", exists=True, help="Labelled claim set."
+    ),
+) -> None:
+    """Measure whether suggested rewrites repair the claims flagged as unsupported."""
+    from kiwi.claims import REJECTED
+    from kiwi.core import _ALIGN_PASSAGES, _revision_instruction
+    from kiwi.evaluation import evaluate_revisions, load_alignment_set
+    from kiwi.types import Chunk, Depth, Intent
+
+    generator = default_generator()
+    if generator is None:
+        typer.secho("No Generator configured. Set KIWI_GENERATOR_MODEL.", fg="yellow")
+        raise typer.Exit(code=1)
+    aligner = default_aligner()
+    if aligner is None:
+        typer.secho("No Aligner configured.", fg="yellow")
+        raise typer.Exit(code=1)
+
+    flagged: list[str] = []
+    evidence: list[list[Chunk]] = []
+    for pair in load_alignment_set(labelled):
+        if pair.label != REJECTED:
+            continue
+        hits = retrieve(project, pair.claim, _ALIGN_PASSAGES, pair.citation)
+        flagged.append(pair.claim)
+        evidence.append([hit.chunk for hit in hits])
+
+    if not flagged:
+        typer.secho("No claims labelled 0 in this set.", fg="yellow")
+        raise typer.Exit(code=1)
+
+    # The instruction carries the evidence passage, so it is built from a
+    # scored claim rather than written here.
+    scored = aligner.align(flagged[0], Intent.EVIDENCE, evidence[0], Depth.QUICK)
+    metrics = evaluate_revisions(
+        flagged, evidence, generator, aligner, _revision_instruction(scored)
+    )
+
+    typer.echo(f"{metrics.n} claims labelled unsupported")
+    typer.secho(f"repaired    : {metrics.repaired:.3f}", bold=True, fg="green")
+    typer.echo(f"hedged      : {metrics.hedged:.3f}")
+    typer.secho(f"unrepaired  : {metrics.unrepaired:.3f}", fg="red")
+    typer.echo(f"assertion dropped : {metrics.gutted:.3f}")
+
+
 @app.command("evaluate-alignment")
 def evaluate_alignment(
     project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),

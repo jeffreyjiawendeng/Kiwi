@@ -6,6 +6,7 @@ is measured. Also a simple, standalone Chunker implementation.
 
 from __future__ import annotations
 
+import os
 import re
 
 from kiwi.types import Anchor, Chunk, Document, Health
@@ -21,6 +22,11 @@ class FixedSizeChunker:
 
     name = "fixed-size"
 
+    def __init__(self, target_tokens: int | None = None) -> None:
+        self.target_tokens = target_tokens or int(
+            os.environ.get("KIWI_CHUNK_TOKENS") or TARGET_TOKENS
+        )
+
     def health(self) -> Health:
         return Health(ok=True, detail="fixed-size chunker, no section awareness")
 
@@ -32,8 +38,8 @@ class FixedSizeChunker:
 
         doc_suffix = document.document_id.removeprefix("doc_")
         chunks: list[Chunk] = []
-        for ordinal, i in enumerate(range(0, len(tokens), TARGET_TOKENS)):
-            window = tokens[i : i + TARGET_TOKENS]
+        for ordinal, i in enumerate(range(0, len(tokens), self.target_tokens)):
+            window = tokens[i : i + self.target_tokens]
             start, end = window[0].start(), window[-1].end()
             content = text[start:end]
             anchor = Anchor(
