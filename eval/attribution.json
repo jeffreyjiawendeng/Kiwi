@@ -1,0 +1,89 @@
+{
+  "pairs": [
+    {
+      "claim": "The virtual node algorithm for betweenness centrality was introduced by the cited authors.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 1
+    },
+    {
+      "claim": "The idea of replacing weighted edges with connected virtual nodes originates with this work.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 1
+    },
+    {
+      "claim": "Brandes' algorithm for betweenness centrality was introduced by the cited authors.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 0
+    },
+    {
+      "claim": "Breadth-first search was first described in the cited work.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 0
+    },
+    {
+      "claim": "The GConvTrans model was proposed by the cited authors.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 1
+    },
+    {
+      "claim": "The CSE-CIC-IDS2018 dataset was created by the cited authors.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 0
+    },
+    {
+      "claim": "The SMOTE oversampling technique was introduced in the cited work.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 0
+    },
+    {
+      "claim": "The comparison framework for remote desktop protocols is due to the cited authors.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 1
+    },
+    {
+      "claim": "The Remote Desktop Protocol was designed by the cited authors.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 0
+    },
+    {
+      "claim": "The Random Midpoint Displacement method was introduced in the cited work.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 0
+    },
+    {
+      "claim": "The ECC-based authentication scheme for edge-IoT is proposed in the cited work.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 1
+    },
+    {
+      "claim": "Elliptic curve cryptography was invented by the cited authors.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 0
+    },
+    {
+      "claim": "The Dolev-Yao threat model was introduced in the cited work.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 0
+    },
+    {
+      "claim": "The ProVerif verification toolkit was developed by the cited authors.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 0
+    },
+    {
+      "claim": "The blockchain-based data management review is presented by the cited authors.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 1
+    },
+    {
+      "claim": "The Solidity programming language was created by the cited authors.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 0
+    },
+    {
+      "claim": "The truffle development framework was built by the cited authors.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 0
+    }
+  ]
+}

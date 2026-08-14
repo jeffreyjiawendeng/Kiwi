@@ -1,8 +1,7 @@
 """GROBID TEI/XML to Document.
 
 Separated from the network call in ``grobid.py`` so parsing is testable
-against a recorded TEI fixture without a running GROBID service. See
-docs/12-stack.md.
+against a recorded TEI fixture without a running GROBID service.
 """
 
 from __future__ import annotations

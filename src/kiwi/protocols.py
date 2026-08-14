@@ -3,7 +3,7 @@
 Every component boundary is a ``typing.Protocol``, never an ABC: a
 third-party replacement must not have to import a Kiwi base class. This
 module must not import anything from ``kiwi.components``. A lint rule in
-pyproject.toml enforces it. See docs/02-interfaces.md and docs/06-architecture.md.
+pyproject.toml enforces it.
 """
 
 from __future__ import annotations

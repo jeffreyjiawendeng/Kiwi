@@ -1,8 +1,7 @@
 """On-disk workspace format.
 
 Everything under ``.kiwi/`` is derived and rebuildable. Everything outside
-it is source of truth; no code reconciles the two. See
-docs/03-workspace-format.md.
+it is source of truth; no code reconciles the two.
 """
 
 from __future__ import annotations

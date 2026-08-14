@@ -1,8 +1,7 @@
 """Shared types crossing component boundaries.
 
 Every dataclass here is frozen: data crossing a component boundary is a
-value, never a dict, and never mutated in place after construction. See
-docs/02-interfaces.md, which this module implements verbatim.
+value, never a dict, and never mutated in place after construction.
 """
 
 from __future__ import annotations
@@ -22,8 +21,8 @@ class Anchor:
     """Locates a passage inside a document.
 
     The same shape is used for annotations, citation targets, evidence
-    passages, suggestion spans, and chunk provenance. See
-    docs/01-identifiers.md for the resolution algorithm.
+    passages, suggestion spans, and chunk provenance. ``kiwi.anchor``
+    resolves it against text that has changed.
     """
 
     document_id: str

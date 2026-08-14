@@ -1,14 +1,16 @@
-"""sentence-transformers Embedder. See docs/12-stack.md, "Embedder".
+"""sentence-transformers Embedder.
 
 Optional: only importable when the ``embed`` extra is installed. Absent, the
-Store falls back to native BM25 keyword search. See docs/11-components.md.
+Store falls back to native BM25 keyword search.
 """
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
+from kiwi.device import describe_device, resolve_device
 from kiwi.types import Health, Vector
 
 if TYPE_CHECKING:
@@ -16,20 +18,33 @@ if TYPE_CHECKING:
 
 DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
 
-# nomic-embed-text-v1.5 is asymmetric: documents and queries need different
-# instruction prefixes, which is why embed() and embed_query() are
-# separate methods on the protocol rather than one.
-_DOCUMENT_PREFIX = "search_document: "
-_QUERY_PREFIX = "search_query: "
+# Asymmetric models want different instruction prefixes on documents and
+# queries, which is why embed() and embed_query() are separate methods on
+# the protocol rather than one. Prefixes are per model: applying one
+# model's prefixes to another degrades its retrieval.
+_PREFIXES: dict[str, tuple[str, str]] = {
+    "nomic-ai/nomic-embed-text-v1.5": ("search_document: ", "search_query: "),
+    "intfloat/e5-large-v2": ("passage: ", "query: "),
+    "intfloat/e5-base-v2": ("passage: ", "query: "),
+    "BAAI/bge-large-en-v1.5": ("", "Represent this sentence for searching relevant passages: "),
+    "BAAI/bge-base-en-v1.5": ("", "Represent this sentence for searching relevant passages: "),
+}
+_NO_PREFIXES = ("", "")
 
 
 class SentenceTransformerEmbedder:
-    """Local, CPU-friendly text embedding. No API key required."""
+    """Text embedding through a locally downloaded model. Requires no API key."""
 
     name = "sentence-transformers"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
-        self.model_name = model_name
+    def __init__(self, model_name: str | None = None, device: str | None = None) -> None:
+        self.device = resolve_device(device)
+        # The model is not chosen by device: stored vectors carry the
+        # dimension of the model that produced them, so changing it means
+        # rebuilding the index. See eval/README.md for the measured
+        # alternatives.
+        self.model_name = model_name or os.environ.get("KIWI_EMBED_MODEL") or DEFAULT_MODEL
+        self.document_prefix, self.query_prefix = _PREFIXES.get(self.model_name, _NO_PREFIXES)
         self._model: SentenceTransformer | None = None
 
     def _load(self) -> SentenceTransformer:
@@ -38,7 +53,9 @@ class SentenceTransformerEmbedder:
 
             # trust_remote_code is required for nomic's custom architecture;
             # harmless for standard models, which ignore it.
-            self._model = _SentenceTransformer(self.model_name, trust_remote_code=True)
+            self._model = _SentenceTransformer(
+                self.model_name, trust_remote_code=True, device=self.device
+            )
         return self._model
 
     @property
@@ -58,18 +75,18 @@ class SentenceTransformerEmbedder:
             self._load()
         except Exception as exc:  # model download/load can fail many ways
             return Health(ok=False, detail=str(exc))
-        return Health(ok=True, detail=f"{self.model_name} loaded")
+        return Health(ok=True, detail=f"{self.model_name} on {describe_device(self.device)}")
 
     def embed(self, texts: Sequence[str]) -> list[Vector]:
         model = self._load()
-        prefixed = [f"{_DOCUMENT_PREFIX}{t}" for t in texts]
+        prefixed = [f"{self.document_prefix}{t}" for t in texts]
         vectors = model.encode(prefixed, normalize_embeddings=True, convert_to_numpy=True)
         return [vector.tolist() for vector in vectors]
 
     def embed_query(self, text: str) -> Vector:
         model = self._load()
         vector = model.encode(
-            f"{_QUERY_PREFIX}{text}", normalize_embeddings=True, convert_to_numpy=True
+            f"{self.query_prefix}{text}", normalize_embeddings=True, convert_to_numpy=True
         )
         result: list[float] = vector.tolist()
         return result

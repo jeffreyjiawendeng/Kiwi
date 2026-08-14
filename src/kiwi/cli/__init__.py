@@ -1,8 +1,7 @@
 """Command line interface.
 
 Exposes ingestion, indexing, verification, retrieval, and evaluation as
-commands over the same core the HTTP API and web interface use. See
-docs/06-architecture.md.
+commands over the same core the HTTP API and web interface use.
 """
 
 from __future__ import annotations
@@ -15,9 +14,15 @@ import typer
 from kiwi.components.chunk.fixed_size import FixedSizeChunker
 from kiwi.components.chunk.section_aware import SectionAwareChunker
 from kiwi.components.resolve.crossref import CrossrefResolver
-from kiwi.core import index_documents, retrieve, verify_document
+from kiwi.core import align_draft, index_documents, retrieve, verify_document
 from kiwi.protocols import IngestError
-from kiwi.registry import DEFAULT_GROBID_URL, default_embedder, default_generator, default_ingestor
+from kiwi.registry import (
+    DEFAULT_GROBID_URL,
+    default_aligner,
+    default_embedder,
+    default_generator,
+    default_ingestor,
+)
 from kiwi.types import RefStatus
 from kiwi.workspace import init_project, read_document, write_document
 
@@ -157,7 +162,7 @@ def ask(
     """Query indexed papers. Uses a Generator only if KIWI_GENERATOR_MODEL is set."""
     hits = retrieve(project, question, k, doc)
     if not hits:
-        typer.secho("No results. Have you run `kiwi index`?", fg="yellow")
+        typer.secho("No results. Index the project with `kiwi index`.", fg="yellow")
         raise typer.Exit(code=1)
 
     generator = default_generator()
@@ -179,17 +184,67 @@ def ask(
 
 
 @app.command()
+def align(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    deep: bool = typer.Option(
+        False, "--deep", help="Split compound claims and score each assertion separately."
+    ),
+) -> None:
+    """Score each cited sentence in a draft against the work it cites."""
+    from kiwi.types import Depth
+
+    claims = align_draft(project, draft, depth=Depth.DEEP if deep else Depth.QUICK)
+    if not claims:
+        typer.secho("No claims scored. Check the draft cites a paper.", fg="yellow")
+        raise typer.Exit(code=1)
+
+    colors = {0: "red", 1: "yellow", 2: "green"}
+    for claim in claims:
+        if claim.alignment is None and claim.deep_alignment is None:
+            typer.echo(f"[{claim.intent.value}] {claim.anchor.exact[:90]}")
+            continue
+
+        shown = claim.deep_alignment or claim.alignment
+        assert shown is not None
+        typer.secho(f"[{shown.score}] {claim.anchor.exact[:90]}", fg=colors[shown.score])
+        typer.echo(f"    cites {claim.citation} as {claim.intent.value}")
+
+        for alignment in (claim.alignment, claim.deep_alignment):
+            if alignment is None:
+                continue
+            stale = " (stale)" if alignment is claim.deep_alignment and claim.deep_is_stale else ""
+            typer.echo(f"    {alignment.depth.value}: {alignment.score}{stale}")
+        if shown.evidence is not None:
+            typer.echo(f"    evidence: {shown.evidence.exact[:120]}")
+
+
+@app.command()
 def health(
     grobid_url: str = typer.Option(DEFAULT_GROBID_URL, "--grobid-url", envvar="KIWI_GROBID_URL"),
 ) -> None:
-    """Check whether the configured GROBID service is reachable."""
+    """Report the configured components and the device models run on."""
+    from kiwi.device import available_device, describe_device, resolve_device
+
+    device = resolve_device()
+    typer.echo(f"device    : {describe_device(device)}")
+    if device == "cpu" and available_device() == "cpu":
+        typer.echo("            no GPU reachable; see the README to install a GPU build of torch")
+
+    embedder = default_embedder()
+    typer.echo(f"embedder  : {embedder.name if embedder else 'none (BM25 keyword search)'}")
+    aligner = default_aligner()
+    typer.echo(f"aligner   : {aligner.name if aligner else 'none (citations shown unscored)'}")
+    generator = default_generator()
+    typer.echo(f"generator : {generator.name if generator else 'none (ranked passages)'}")
+
     ingestor = default_ingestor()
     ingestor.base_url = grobid_url.rstrip("/")
     result = ingestor.health()
     if result.ok:
-        typer.secho(f"OK: {result.detail}", fg="green")
+        typer.secho(f"ingestor  : OK, {result.detail}", fg="green")
     else:
-        typer.secho(f"FAIL: {result.detail}", fg="red")
+        typer.secho(f"ingestor  : FAIL, {result.detail}", fg="red")
         raise typer.Exit(code=1)
 
 
@@ -201,7 +256,7 @@ def evaluate(
     ),
 ) -> None:
     """Compare retrieval quality across chunkers and retrieval modes
-    (BM25, vector, hybrid) against a golden query set. See docs/14-evaluation.md."""
+    (BM25, vector, hybrid) against a golden query set."""
     import tempfile
 
     from kiwi.evaluation import RetrievalMode, evaluate_configuration, load_golden_set
@@ -240,6 +295,52 @@ def evaluate(
                 for k in sorted(result.metrics.recall_at):
                     typer.echo(f"  Recall@{k}: {result.metrics.recall_at[k]:.3f}")
                 typer.echo(f"  MRR:      {result.metrics.mrr:.3f}\n")
+
+
+@app.command("evaluate-alignment")
+def evaluate_alignment(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    labelled: Path = typer.Option(
+        Path("eval/alignment.json"), "--labelled", exists=True, help="Labelled claim set."
+    ),
+    intent: str = typer.Option(
+        "evidence", "--intent", help="Scale to score against: evidence or attribution."
+    ),
+) -> None:
+    """Measure alignment scoring against a labelled claim set."""
+    from kiwi.claims import supporting_score
+    from kiwi.evaluation import compute_alignment_metrics, load_alignment_set
+    from kiwi.types import Depth, Intent
+
+    try:
+        scale = Intent(intent)
+    except ValueError as exc:
+        typer.secho(f"Unknown intent: {intent}", fg="red")
+        raise typer.Exit(code=1) from exc
+
+    aligner = default_aligner()
+    if aligner is None:
+        typer.secho("No Aligner configured.", fg="yellow")
+        raise typer.Exit(code=1)
+
+    pairs = load_alignment_set(labelled)
+    typer.echo(f"{len(pairs)} labelled claim-citation pairs\n")
+
+    from kiwi.core import _ALIGN_PASSAGES
+
+    predictions = []
+    for pair in pairs:
+        hits = retrieve(project, pair.claim, _ALIGN_PASSAGES, pair.citation)
+        chunks = [hit.chunk for hit in hits]
+        predictions.append(aligner.align(pair.claim, scale, chunks, Depth.QUICK).score)
+
+    supporting = supporting_score(scale)
+    metrics = compute_alignment_metrics([p.label for p in pairs], predictions, supporting)
+    typer.secho(f"accuracy          : {metrics.accuracy:.3f}", bold=True)
+    for label in sorted(metrics.per_label):
+        typer.echo(f"  recall label {label}  : {metrics.per_label[label]:.3f}")
+    typer.secho(f"false endorsement : {metrics.false_endorsement:.3f}", fg="red")
+    typer.echo(f"missed support    : {metrics.missed_support:.3f}")
 
 
 @app.command()

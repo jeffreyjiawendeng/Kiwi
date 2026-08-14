@@ -1,5 +1,5 @@
 """Notes and Drafts: plain Markdown with YAML frontmatter, editable in any
-editor. See docs/03-workspace-format.md, "notes/ and drafts/".
+editor.
 
 Kiwi's state (page id, created timestamp, a note's visibility) lives in the
 frontmatter; the body is exactly what a plain Markdown viewer would show.
@@ -23,7 +23,7 @@ class PathOutsideProject(ValueError):
     """Raised when a page path resolves outside its project directory."""
 
 
-def _resolve_within(base: Path, relpath: str) -> Path:
+def resolve_within(base: Path, relpath: str) -> Path:
     """Resolve ``relpath`` against ``base`` and confirm it stays inside.
 
     Rejects parent-directory segments and absolute paths, both of which
@@ -70,7 +70,7 @@ def list_pages(root: Path, kind: str) -> list[str]:
 
 
 def read_note(root: Path, relpath: str) -> Json:
-    path = _resolve_within(root / "notes", relpath)
+    path = resolve_within(root / "notes", relpath)
     frontmatter, body = _split_frontmatter(path.read_text(encoding="utf-8"))
     return {
         "path": relpath,
@@ -82,7 +82,7 @@ def read_note(root: Path, relpath: str) -> Json:
 
 
 def write_note(root: Path, relpath: str, content: str, visibility: str = "private") -> Json:
-    path = _resolve_within(root / "notes", relpath)
+    path = resolve_within(root / "notes", relpath)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     page_id, created = _new_page_id(), _now()
@@ -103,7 +103,7 @@ def write_note(root: Path, relpath: str, content: str, visibility: str = "privat
 
 
 def read_draft(root: Path, relpath: str) -> Json:
-    path = _resolve_within(root / "drafts", relpath)
+    path = resolve_within(root / "drafts", relpath)
     frontmatter, body = _split_frontmatter(path.read_text(encoding="utf-8"))
     return {
         "path": relpath,
@@ -114,7 +114,7 @@ def read_draft(root: Path, relpath: str) -> Json:
 
 
 def write_draft(root: Path, relpath: str, content: str) -> Json:
-    path = _resolve_within(root / "drafts", relpath)
+    path = resolve_within(root / "drafts", relpath)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     page_id, created = _new_page_id(), _now()

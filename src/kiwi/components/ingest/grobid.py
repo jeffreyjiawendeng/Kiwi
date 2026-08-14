@@ -1,4 +1,4 @@
-"""GROBID-backed Ingestor. See docs/12-stack.md."""
+"""GROBID-backed Ingestor."""
 
 from __future__ import annotations
 
@@ -75,5 +75,5 @@ class GrobidIngestor:
         except Exception as exc:
             # A malformed or unexpectedly-shaped TEI response must not
             # surface as a partial Document. Only IngestError may escape
-            # an Ingestor. See docs/02-interfaces.md, "Ingestor".
+            # an Ingestor.
             raise IngestError(f"could not parse GROBID output for {source.name}: {exc}") from exc

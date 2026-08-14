@@ -1,4 +1,4 @@
-"""Default Retriever. See docs/02-interfaces.md, "Retriever".
+"""Default Retriever.
 
 Fuses BM25 and vector Store search by weighted Reciprocal Rank Fusion
 when an Embedder is configured, and falls back to BM25 alone otherwise.
@@ -40,7 +40,15 @@ class DefaultRetriever:
         if self.embedder is None or not self.store.has_vectors():
             return self.store.search_text(query, k, filter)
         candidates = max(k * _CANDIDATE_MULTIPLIER, _MIN_CANDIDATES)
-        vector_hits = self.store.search_vector(self.embedder.embed_query(query), candidates, filter)
+        try:
+            vector_hits = self.store.search_vector(
+                self.embedder.embed_query(query), candidates, filter
+            )
+        except ValueError:
+            # Vectors stored by one Embedder cannot be searched with the
+            # query vectors of another, because the two disagree on
+            # dimension. Re-index to use the configured Embedder.
+            return self.store.search_text(query, k, filter)
         text_hits = self.store.search_text(query, candidates, filter)
         return reciprocal_rank_fusion(vector_hits, text_hits, k=k, weights=HYBRID_WEIGHTS)
 

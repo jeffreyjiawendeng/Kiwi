@@ -1,9 +1,9 @@
-"""LiteLLM Generator. See docs/12-stack.md, "Generator".
+"""LiteLLM Generator.
 
 LiteLLM provides one OpenAI-format interface across providers, so a
 hosted API key or a local Ollama model both work with no change to Kiwi.
 Optional: without one configured, Kiwi returns ranked passages instead of
-a synthesised answer. See docs/11-components.md.
+a synthesised answer.
 """
 
 from __future__ import annotations
@@ -75,8 +75,7 @@ class LiteLLMGenerator:
         for match in _CITATION_RE.finditer(text):
             index = int(match.group(1)) - 1
             # Every citation must resolve to a supplied passage. An
-            # out-of-range marker is dropped rather than trusted. See
-            # docs/02-interfaces.md, "Generator".
+            # out-of-range marker is dropped rather than trusted.
             if 0 <= index < len(passages) and index not in seen:
                 seen.add(index)
                 hit = passages[index]

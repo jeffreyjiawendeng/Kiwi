@@ -1,6 +1,6 @@
 # Kiwi
 
-Kiwi is an open source research workspace for retrieval-augmented generation over research papers. Every generated claim is traceable to a passage in a source document, and every component in the pipeline, including the interface, can be swapped, omitted, or replaced with an alternative implementation.
+Kiwi is an open source workspace for retrieval-augmented generation over research papers. Every generated claim is traceable to a passage in a source document, and every component in the pipeline, including the interface, can be replaced or omitted.
 
 ## Features
 
@@ -8,6 +8,7 @@ Kiwi is an open source research workspace for retrieval-augmented generation ove
 - Section-aware chunking and corpus-wide retrieval. BM25 keyword search runs with no configuration; hybrid BM25 and vector search is used automatically once an embedding model is configured.
 - Citation-checked answers generated from retrieved passages, using an optional language model.
 - Reference verification against Crossref: existence, metadata consistency, and retraction status.
+- Claim alignment scoring: each cited sentence in a draft is scored against the passage it cites, so a citation that resolves but does not support the claim is surfaced.
 - A local web interface for browsing papers, writing notes, and drafting documents with inline citations.
 - A command line interface and an HTTP API exposing the same functionality as the web interface.
 
@@ -28,6 +29,20 @@ Start GROBID:
 ```bash
 docker run --rm -p 8070:8070 lfoppiano/grobid:0.8.1
 ```
+
+### GPU
+
+Embedding and claim alignment run on a GPU when one is present and fall back to the CPU when it is not. Retrieval returns the same results either way. Claim alignment uses a larger model where an accelerator is present, so its scores differ between the two.
+
+PyPI ships a CPU-only build of torch on some platforms. Install a matching CUDA build to use an NVIDIA card:
+
+```bash
+uv pip install torch --index-url https://download.pytorch.org/whl/cu129
+```
+
+Pick the index that matches the card: `cu129` or `cu128` for Blackwell (RTX 50 series), `cu126` for older cards. Apple silicon uses Metal through the stock build and needs no extra step. Running `uv sync` reinstalls the CPU build, so repeat this command afterwards.
+
+`kiwi health` reports the device in use and the model loaded on it.
 
 ## Usage
 
@@ -54,7 +69,7 @@ curl -X PUT http://127.0.0.1:8000/notes/reading-log.md -H "Content-Type: applica
 
 ## Configuration
 
-Kiwi is configured through environment variables. None are required; each has a working default or degrades to a narrower but functional mode.
+Kiwi is configured through environment variables. None are required; each has a default, or turns off a feature and leaves the rest working.
 
 | Variable | Effect |
 |---|---|
@@ -63,6 +78,11 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `KIWI_GENERATOR_MODEL` | A LiteLLM model string. Enables generated answers; unset, `kiwi ask` returns ranked passages instead. |
 | `KIWI_CONTACT_EMAIL` | Contact email sent with Crossref requests, for its polite request pool. |
 | `KIWI_NO_VERIFY` | Disables reference verification. |
+| `KIWI_ALIGNER_MODEL` | Sequence classification model used for claim alignment. Defaults to `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` with an accelerator and the base model of the same family on a CPU. |
+| `KIWI_EMBED_MODEL` | Embedding model. Defaults to `nomic-ai/nomic-embed-text-v1.5`. Changing it requires deleting `.kiwi/` and re-indexing, because stored vectors carry the width of the model that produced them. |
+| `KIWI_INTENT_MODEL` | Citation intent classifier labelled `background`, `method`, and `result`. Unset, every claim is treated as evidence and scored. |
+| `KIWI_NO_ALIGN` | Disables claim alignment. |
+| `KIWI_DEVICE` | Device models run on: `auto` (default), `cuda`, `mps`, or `cpu`. A device that is named but unavailable falls back to the CPU. |
 | `KIWI_DATA_DIR` | Overrides where the known-projects registry is stored. |
 
 ## Command line interface
@@ -73,8 +93,10 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `kiwi index PROJECT [--doc ID]` | Chunks and indexes papers so they can be queried. |
 | `kiwi verify PROJECT [--doc ID]` | Resolves extracted references against Crossref. |
 | `kiwi ask PROJECT QUESTION [--doc ID] [--k N]` | Queries indexed papers and returns ranked passages or a generated answer. |
-| `kiwi health` | Checks whether the configured GROBID service is reachable. |
+| `kiwi align PROJECT DRAFT [--deep]` | Scores each cited sentence in a draft against the work it cites. `--deep` splits compound claims and scores each assertion separately. |
+| `kiwi health` | Reports the configured components, the device models run on, and whether GROBID is reachable. |
 | `kiwi evaluate PROJECT [--golden PATH]` | Measures retrieval quality against a golden query set. |
+| `kiwi evaluate-alignment PROJECT [--labelled PATH]` | Measures alignment scoring against a labelled claim set. |
 | `kiwi serve [--host HOST] [--port PORT]` | Runs the HTTP API and the web interface. |
 
 Run `kiwi COMMAND --help` for the full option list of any command.
@@ -92,6 +114,9 @@ Run `kiwi COMMAND --help` for the full option list of any command.
 | POST | `/index` | Chunks and indexes papers. |
 | POST | `/verify` | Resolves extracted references against Crossref. |
 | POST | `/ask` | Queries indexed papers. |
+| POST | `/align` | Scores each cited sentence in a draft. `depth` is `quick` or `deep`. |
+| GET | `/align/{path}` | Claims recorded for a draft, at both depths. |
+| PUT | `/align/intent` | Overrides the detected intent for one claim. |
 | GET | `/papers/{document_id}` | A previously ingested paper, with sections and references. |
 | GET | `/papers/{document_id}/verification` | The last verification result for a paper. |
 | GET, PUT | `/notes/{path}` | Reads or writes a note. |
@@ -112,7 +137,7 @@ Internal module layout, prompt templates, and anything under an `_internal` name
 
 ## Architecture
 
-Kiwi is a set of substitutable components behind stable interfaces rather than one fixed application. The CLI, the HTTP API, and the web interface are three consumers of the same core.
+Kiwi is a set of substitutable components behind stable interfaces. The CLI, the HTTP API, and the web interface are three consumers of the same core.
 
 | Component | Implementation |
 |---|---|
@@ -123,7 +148,10 @@ Kiwi is a set of substitutable components behind stable interfaces rather than o
 | Retriever | BM25 keyword search, or hybrid BM25 and vector search fused by weighted Reciprocal Rank Fusion when an Embedder is configured |
 | Generator | LiteLLM; optional |
 | Resolver | Crossref: identifier resolution, metadata, retraction status |
+| Aligner | Local NLI model scoring a claim against the passage it cites; optional |
 | Interface | A local web UI at `/app`, plain HTML, CSS, and JavaScript with no build step, served by the same process as the API |
+
+In the Drafts view, **Check claims** scores every cited sentence and **Check in depth** splits compound claims into their assertions. Each score is shown with the passage it was computed from, so the score can be checked against what was read. A score of 2 is reported without emphasis, a claim the cited work does not establish is stated plainly, and an unsupported claim is flagged. Where the two depths disagree both are shown, and a deep result whose claim has since been edited is marked stale rather than dropped. Citation intent can be set by hand per claim and the setting persists.
 
 ## Retrieval evaluation
 
@@ -139,6 +167,28 @@ Hybrid retrieval fuses BM25 and vector rankings by Reciprocal Rank Fusion, weigh
 
 ```bash
 uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden.json
+```
+
+## Alignment evaluation
+
+Alignment scoring is measured against 47 labelled claim-citation pairs written against the same five papers. Each pair records the score a reader would assign: 2 where the paper supports the claim, 1 where it is relevant but does not establish it, and 0 where it is inconsistent.
+
+| | Accuracy | Recall 2 | Recall 1 | Recall 0 | False endorsement | Missed support |
+|---|---|---|---|---|---|---|
+| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.851 | 0.875 | 0.700 | 0.923 | 0.000 | 0.125 |
+| `DeBERTa-v3-base-mnli-fever-anli` (CPU) | 0.809 | 0.875 | 0.800 | 0.692 | 0.000 | 0.125 |
+
+False endorsement is the share of unsupported claims scored 2. A score of 2 is shown without a warning, so a false endorsement leaves an unsupported claim unmarked. The default model is the one that produces none on this set.
+
+Five passages are retrieved per claim. The one scored is the passage the model is least neutral about, and a score of 2 additionally requires the highest-ranked passage to agree.
+
+`kiwi align --deep` splits a compound claim into its assertions and scores each against evidence retrieved for it. On a second set of 24 compound and hedged claims, the deep check raises accuracy from 0.583 to 0.625 and recall on supported claims from 0.500 to 0.625. Both figures are lower than on direct claims, where the two depths agree exactly. See [eval/README.md](eval/README.md) for the measurements behind these rules and for where the scoring is weakest.
+
+Attribution is scored on a separate binary scale and measured against 17 further pairs: accuracy 0.824, with 2 of 11 claims wrongly credited. Entailment does not separate using a technique from originating it, so a claim naming a method the paper merely applies can be credited to it. See [eval/README.md](eval/README.md).
+
+```bash
+uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/alignment.json
+uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/attribution.json --intent attribution
 ```
 
 ## Development

@@ -1,8 +1,7 @@
 """Document text normalisation.
 
 Produces the normalised text an Ingestor stores as ``text.txt`` and that
-every Anchor's offsets index into. See docs/01-identifiers.md, "Normalised
-document text".
+every Anchor's offsets index into.
 """
 
 from __future__ import annotations

@@ -1,0 +1,239 @@
+{
+  "pairs": [
+    {
+      "claim": "The VN algorithm is faster than Brandes' algorithm on large sparse networks.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 2
+    },
+    {
+      "claim": "The experiments were run on a machine with an Intel Core 2 Quad CPU.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 2
+    },
+    {
+      "claim": "The VN algorithm does not outperform Brandes' algorithm on dense networks weighted with large values.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 2
+    },
+    {
+      "claim": "An integer-weighted network can be converted into an unweighted network using virtual nodes.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 2
+    },
+    {
+      "claim": "The algorithms were implemented in C.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 2
+    },
+    {
+      "claim": "The VN algorithm is slower than Brandes' algorithm on large sparse networks.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 0
+    },
+    {
+      "claim": "The experiments were run on a GPU cluster.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 0
+    },
+    {
+      "claim": "The VN algorithm outperforms Brandes' algorithm on every network regardless of density.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 0
+    },
+    {
+      "claim": "The VN algorithm has been deployed in production social network analysis systems.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 1
+    },
+    {
+      "claim": "The VN algorithm reduces memory consumption by an order of magnitude.",
+      "citation": "doc_3c1ceac223d5c007",
+      "label": 1
+    },
+    {
+      "claim": "The study used the CSE-CIC-IDS2018 dataset.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 2
+    },
+    {
+      "claim": "The model achieved accuracy above 96 percent on the held-out test set.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 2
+    },
+    {
+      "claim": "SMOTE was applied to oversample the minority classes.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 2
+    },
+    {
+      "claim": "The constructed graph contains more than 70,000 nodes.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 2
+    },
+    {
+      "claim": "The study evaluated only a single dataset.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 2
+    },
+    {
+      "claim": "The model achieved accuracy below 50 percent on the held-out test set.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 0
+    },
+    {
+      "claim": "The study evaluated its model across five separate datasets.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 0
+    },
+    {
+      "claim": "The constructed graph contains fewer than one thousand nodes.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 0
+    },
+    {
+      "claim": "The model was deployed in a live enterprise network.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 1
+    },
+    {
+      "claim": "The approach generalizes to encrypted network traffic.",
+      "citation": "doc_659ff570e8044f39",
+      "label": 1
+    },
+    {
+      "claim": "The study compares five remote desktop protocols.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 2
+    },
+    {
+      "claim": "User actions were recorded using the Macro Recorder tool.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 2
+    },
+    {
+      "claim": "Video quality was assessed using a Peak Signal-to-Noise Ratio measurement.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 2
+    },
+    {
+      "claim": "The virtual machine ran Windows 7.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 2
+    },
+    {
+      "claim": "The study compares only two remote desktop protocols.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 0
+    },
+    {
+      "claim": "The virtual machine ran Ubuntu Linux.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 0
+    },
+    {
+      "claim": "RDP is the best performing protocol under all network conditions.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 1
+    },
+    {
+      "claim": "The study measured power consumption of the client devices.",
+      "citation": "doc_b48982da46d1815a",
+      "label": 1
+    },
+    {
+      "claim": "The proposed protocol uses elliptic curve cryptography.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 2
+    },
+    {
+      "claim": "The protocol was formally verified using ProVerif.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 2
+    },
+    {
+      "claim": "The proposed network model consists of three entities.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 2
+    },
+    {
+      "claim": "The protocol uses a 160-bit elliptic curve key.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 2
+    },
+    {
+      "claim": "The security analysis uses the Dolev-Yao threat model.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 2
+    },
+    {
+      "claim": "The protocol relies on RSA rather than elliptic curve cryptography.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 0
+    },
+    {
+      "claim": "The protocol was verified using the Tamarin prover.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 0
+    },
+    {
+      "claim": "The proposed network model consists of a single entity.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 0
+    },
+    {
+      "claim": "The protocol has been standardized by the IETF.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 1
+    },
+    {
+      "claim": "The protocol reduces energy consumption by 40 percent compared to TLS.",
+      "citation": "doc_26c8a1141139da12",
+      "label": 1
+    },
+    {
+      "claim": "The smart contracts were written in the Solidity programming language.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 2
+    },
+    {
+      "claim": "The review includes a survey covering 56 studies.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 2
+    },
+    {
+      "claim": "Three criteria were proposed as success predictors for blockchain-based data management projects.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 2
+    },
+    {
+      "claim": "The evaluation measures transaction latency and query latency.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 2
+    },
+    {
+      "claim": "The truffle framework was used for smart contract development.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 2
+    },
+    {
+      "claim": "The smart contracts were written in Rust.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 0
+    },
+    {
+      "claim": "The review covers fewer than ten studies.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 0
+    },
+    {
+      "claim": "The system has been adopted by major financial institutions.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 1
+    },
+    {
+      "claim": "Solidity outperforms Vyper for this use case.",
+      "citation": "doc_e69e869cd3bc9a82",
+      "label": 1
+    }
+  ]
+}

@@ -2,8 +2,7 @@
 
 Relocates a passage inside a document after the underlying text changes,
 for example after a re-parse by a different Ingestor. Used to resolve
-citations, annotations, evidence passages, and suggestions. See
-docs/01-identifiers.md, "Resolution".
+citations, annotations, evidence passages, and suggestions.
 
 Resolution order:
 

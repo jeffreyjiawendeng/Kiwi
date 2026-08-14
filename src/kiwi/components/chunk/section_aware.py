@@ -1,12 +1,9 @@
-"""Section-aware chunker. See docs/12-stack.md, "Chunker".
+"""Section-aware chunker.
 
 Chunk boundaries follow the smallest structural division the Ingestor
-identified. A section that exceeds the token budget is split further,
-recursively on paragraph then sentence boundaries per the spec, but the
-Ingestor's normalised text does not preserve paragraph breaks (they are
-collapsed to single spaces along with everything else, see
-docs/01-identifiers.md), so sentence-level packing is the practical
-fallback here.
+identified. A section that exceeds the token budget is split further, on
+sentence boundaries: the Ingestor's normalised text collapses paragraph
+breaks to single spaces, so paragraphs cannot be recovered here.
 """
 
 from __future__ import annotations
@@ -25,8 +22,8 @@ _CONTEXT_CHARS = 32
 def _approx_tokens(text: str) -> int:
     # A word-count approximation. Exact tokenisation is embedder-specific
     # and the Chunker protocol takes no Embedder, so precise counts aren't
-    # available here. The evaluation harness (docs/14-evaluation.md) tunes
-    # the target band against measured retrieval quality, not token exactness.
+    # available here. The target band is tuned against measured retrieval
+    # quality rather than token exactness. See eval/README.md.
     return len(text.split())
 
 

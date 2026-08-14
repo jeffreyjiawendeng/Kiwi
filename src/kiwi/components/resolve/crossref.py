@@ -1,4 +1,4 @@
-"""Crossref Resolver. See docs/12-stack.md.
+"""Crossref Resolver.
 
 Crossref acquired the Retraction Watch database in 2023 and publishes it
 openly through the same REST API used for identifier resolution and
@@ -114,8 +114,7 @@ class CrossrefResolver:
     def resolve(self, reference: Reference) -> ResolvedReference:
         # Network failure never raises here: a verification pass must
         # complete over a partial network, reporting UNRESOLVED with
-        # detail rather than aborting the rest of the reference list. See
-        # docs/02-interfaces.md, "Resolver".
+        # detail rather than aborting the rest of the reference list.
         try:
             work = self._get_by_doi(reference.doi) if reference.doi else self._search(reference)
         except httpx.HTTPError as exc:

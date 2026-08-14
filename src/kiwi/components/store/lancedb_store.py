@@ -1,9 +1,9 @@
-"""LanceDB Store. See docs/12-stack.md, "Store".
+"""LanceDB Store.
 
 Embedded, in-process, no server to operate: files on local disk. Provides
-native BM25 keyword search, which is what makes the no-Embedder fallback in
-docs/11-components.md free: removing the Embedder switches the query path
-rather than removing a component.
+native BM25 keyword search, which is what makes the no-Embedder fallback
+free: removing the Embedder switches the query path rather than removing a
+component.
 """
 
 from __future__ import annotations

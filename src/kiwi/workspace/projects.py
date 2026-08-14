@@ -3,8 +3,7 @@
 A launcher-style UI needs a persisted list of project paths rather than
 one re-entered every time. This lives in the platform data directory,
 outside any project, since it is Kiwi-installation state, not workspace
-data. See docs/03-workspace-format.md's scope: this registry is not part
-of it.
+data. It is not part of the workspace format.
 """
 
 from __future__ import annotations

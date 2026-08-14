@@ -74,6 +74,73 @@ def test_index_documents_indexes_a_whole_corpus_in_one_batch(tmp_path: Path) -> 
     assert counts[doc_b.document_id] == 1
 
 
+class _StubAligner:
+    name = "stub"
+
+    def __init__(self, score: int = 2) -> None:
+        self.score = score
+
+    def health(self) -> Health:
+        return Health(ok=True, detail="stub")
+
+    def detect_intent(self, claim, context):  # type: ignore[no-untyped-def]
+        from kiwi.types import Intent
+
+        return Intent.EVIDENCE
+
+    def align(self, claim, intent, evidence, depth):  # type: ignore[no-untyped-def]
+        from kiwi.types import Alignment
+
+        return Alignment(score=self.score, intent=intent, depth=depth, evidence=None, model="stub")
+
+
+def _draft_project(tmp_path: Path, text: str) -> tuple[Path, str]:
+    from kiwi.workspace import write_draft
+
+    project = tmp_path / "Corpus.kiwi"
+    init_project(project, name="Corpus")
+    document, source = _make_document(tmp_path, "a", "Some indexed content here.", "Paper A")
+    write_document(project, document, source)
+    index_documents(project, [document])
+    write_draft(project, "d.md", text.format(doc=document.document_id))
+    return project, document.document_id
+
+
+def test_rewording_a_claim_keeps_its_deep_result_and_marks_it_stale(tmp_path: Path) -> None:
+    from kiwi.core import align_draft
+    from kiwi.types import Depth
+    from kiwi.workspace import write_draft
+
+    project, doc_id = _draft_project(
+        tmp_path, "The approach accelerates computation greatly [@{doc}]."
+    )
+    aligner = _StubAligner()
+
+    align_draft(project, "d.md", aligner=aligner, depth=Depth.DEEP)
+    assert align_draft(project, "d.md", aligner=aligner)[0].deep_is_stale is False
+
+    write_draft(project, "d.md", f"The approach accelerates computation substantially [@{doc_id}].")
+    claims = align_draft(project, "d.md", aligner=aligner)
+
+    assert len(claims) == 1
+    assert claims[0].deep_alignment is not None, "a reworded claim must keep its deep result"
+    assert claims[0].deep_is_stale is True
+
+
+def test_an_unrelated_claim_does_not_inherit_a_deep_result(tmp_path: Path) -> None:
+    from kiwi.core import align_draft
+    from kiwi.types import Depth
+    from kiwi.workspace import write_draft
+
+    project, doc_id = _draft_project(tmp_path, "Retrieval quality improved markedly [@{doc}].")
+    aligner = _StubAligner()
+    align_draft(project, "d.md", aligner=aligner, depth=Depth.DEEP)
+
+    write_draft(project, "d.md", f"Entirely different subject matter about zebras [@{doc_id}].")
+    claims = align_draft(project, "d.md", aligner=aligner)
+    assert claims[0].deep_alignment is None
+
+
 def test_indexing_records_the_chunk_count_in_metadata(tmp_path: Path) -> None:
     project = tmp_path / "Corpus.kiwi"
     init_project(project, name="Corpus")

@@ -25,6 +25,8 @@ uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden.json
 
 Runs `FixedSizeChunker` (512-word windows, no section awareness) and `SectionAwareChunker` (the shipped default) under each of three retrieval modes (BM25, vector, hybrid), each into its own Store, and reports Recall@{1,3,5,10} and MRR. A hit is decided by span overlap within the same document, not chunk ID equality: chunk IDs are chunker-derived and do not match across configurations by construction.
 
+Retrieval figures are the same on CPU and GPU. Alignment figures depend on the model, and the alignment model is chosen by device, so the alignment section states which model produced each figure.
+
 ## Results (computer science corpus, n=50)
 
 **BM25 (no Embedder):**
@@ -62,10 +64,131 @@ Kiwi's numbers are Recall@k and MRR over 50 span-overlap-matched queries on 5 pa
 - Reported gains from hybrid fusion vary by domain: +7.4% NDCG on an e-commerce benchmark (WANDS), up to +40% Recall@10 on scientific code search, and as little as +1.7% NDCG where lexical overlap is already high, such as patent retrieval ([OpenSearch RRF](https://opensearch.org/blog/introducing-reciprocal-rank-fusion-hybrid-search/)). Kiwi's hybrid-over-BM25 gain (+1.1% MRR) is at the low end of this range, consistent with BM25 already reaching Recall@10 = 1.000 on this golden set. The hybrid-over-vector-only gain (+24% MRR) is closer to the range reported for hybrid over dense-only retrieval elsewhere (+26 to 31% NDCG in one benchmark).
 - [LlamaIndex's default retriever is vector-only](https://docs.llamaindex.ai/en/latest/examples/retrievers/reciprocal_rerank_fusion/); BM25 fusion requires wiring a separate `BM25Retriever` into a `QueryFusionRetriever`. Most framework quickstarts share this default, which is the retrieval mode measured above as trailing BM25 by about 18% MRR.
 
+## Alignment set
+
+`alignment.json` contains 47 claim-citation pairs written against the same five papers. Each pair records the score a reader would assign to the claim given the cited work: 2 where the paper supports it, 1 where the paper is relevant but does not establish it, and 0 where the paper is inconsistent with it. Claims are authored rather than quoted, so a supporting claim paraphrases a real passage and an inconsistent claim negates one.
+
+```bash
+uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/alignment.json
+```
+
+**Results (n=47):**
+
+| | Accuracy | Recall 2 | Recall 1 | Recall 0 | False endorsement | Missed support |
+|---|---|---|---|---|---|---|
+| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.851 | 0.875 | 0.700 | 0.923 | 0.000 | 0.125 |
+| `DeBERTa-v3-base-mnli-fever-anli` (CPU) | 0.809 | 0.875 | 0.800 | 0.692 | 0.000 | 0.125 |
+| `DeBERTa-v3-base-mnli-fever-anli-scifact-citint` | 0.787 | 0.875 | 0.800 | 0.615 | 0.043 | 0.125 |
+
+A score of 2 is displayed without a warning, so an unsupported claim scored 2 reaches the reader unmarked. No model that produces one is used.
+
+## Passage selection
+
+Five passages are retrieved per claim from the cited document. The one scored is the passage the model is least neutral about, and a score of 2 additionally requires the highest-ranked passage to agree.
+
+Both halves of that rule were measured. The alternatives, on the same 47 pairs:
+
+| Rule | Accuracy | Recall 0 | False endorsement | Missed support |
+|---|---|---|---|---|
+| Highest-ranked passage only | 0.787 | 0.538 | 0.000 | 0.125 |
+| Best score across five passages | 0.745 | 0.077 | 0.087 | 0.000 |
+| Least neutral of five | 0.851 | 0.692 | 0.087 | 0.042 |
+| **Least neutral of five, support needs the highest-ranked passage** | **0.809** | **0.692** | **0.000** | **0.125** |
+
+Taking the best score across passages is the worst rule for detecting contradiction: a single entailing passage outranks a contradicting one, so recall on label 0 falls to 0.077. Selecting the least neutral passage scores highest overall but endorses two contradicted claims, one asserting a node count the paper contradicts and one naming an operating system the paper does not use. Requiring the highest-ranked passage to agree before reporting support removes both while keeping most of the gain in contradiction recall.
+
+Contradiction recall remains the weakest figure. An oracle that picks the best of every passage in the cited document reaches 0.936 accuracy and 0.769 recall on label 0, so the remaining gap is in selecting the passage rather than in judging it.
+
+Scoring the claim against several passages and lowering the score when any of them contradicts it was also measured across thresholds from 0.50 to 0.95. Every threshold reduced accuracy, because supported claims were downgraded more often than contradictions were caught.
+
+## Alignment model
+
+The model is chosen by device. A machine with an accelerator runs `DeBERTa-v3-large-mnli-fever-anli-ling-wanli`, and a CPU runs the base model of the same family, which is a third of the size and roughly nine times faster per claim on this hardware. `KIWI_ALIGNER_MODEL` overrides both.
+
+A supporting score additionally requires both the scored passage and the highest-ranked passage to put at least 0.70 of the probability mass on entailment. Without that threshold the larger model doubles false endorsement on hedged claims, from 0.125 to 0.250.
+
+Measured on both sets, deep depth:
+
+| Model | Threshold | Direct acc | Direct recall 0 | Hedged acc | False endorsements (of 39) | Contradictions caught (of 20) |
+|---|---|---|---|---|---|---|
+| base | none | 0.809 | 0.692 | 0.667 | 2 | 14 |
+| base | 0.70 | 0.787 | 0.692 | 0.667 | 1 | 14 |
+| large | none | 0.872 | 0.923 | 0.625 | 4 | 16 |
+| **large** | **0.70** | **0.851** | **0.923** | 0.583 | **2** | **16** |
+
+The shipped pairing matches the base model on overall accuracy and on false endorsement while catching sixteen of the twenty contradictions rather than fourteen. Two other models are unusable on this set: `deberta-v3-large-zeroshot-v2.0` never predicts contradiction, giving recall 0.000 on label 0, and `SCIFACT_xlm_roberta_large` predicts label 1 for every pair.
+
+## Embedding model
+
+`BAAI/bge-large-en-v1.5` retrieves better than the default on the vector path, raising vector MRR from 0.667 to 0.804 and vector Recall@1 from 0.500 to 0.700. It is not the default. Hybrid retrieval is what ships, and there it moves MRR from 0.827 to 0.836, a difference within noise at this sample size, while the model is five times the size and its vectors are a different width. Stored vectors carry the width of the model that produced them, so switching embedders requires deleting `.kiwi/` and re-indexing. `KIWI_EMBED_MODEL` selects it.
+
+The hybrid weighting was re-measured with this embedder, which narrows the gap between the two rankings. Weights between 1.5 and 4.0 all fall in MRR 0.836 to 0.846, a range within noise at this sample size.
+
+`Alibaba-NLP/gte-large-en-v1.5` fails to run under the installed transformers version.
+
+## Quick and deep checks
+
+The quick check scores a claim whole. The deep check splits it into the assertions a reader would check separately, scores each against evidence retrieved for it, and reports the claim as supported only where every assertion is supported and inconsistent where any assertion is.
+
+`alignment-hedged.json` holds 24 compound and hedged claims written against the same five papers, of the kind found in published work. Four of them carry more than one assertion, against none in `alignment.json`.
+
+| Set | Depth | Accuracy | Recall 2 | Recall 1 | Recall 0 | False endorsement | Missed support |
+|---|---|---|---|---|---|---|---|
+| Direct claims (n=47) | quick | 0.851 | 0.875 | 0.700 | 0.923 | 0.000 | 0.125 |
+| Direct claims (n=47) | deep | 0.851 | 0.875 | 0.700 | 0.923 | 0.000 | 0.125 |
+| Hedged claims (n=24) | quick | 0.583 | 0.500 | 0.667 | 0.571 | 0.125 | 0.500 |
+| Hedged claims (n=24) | deep | 0.625 | 0.625 | 0.667 | 0.571 | 0.125 | 0.375 |
+
+The two depths agree exactly on the direct claims, which carry one assertion each, so the deep check costs a second retrieval there and returns the same answer. On the hedged claims it recovers a supporting score for one claim in eight that the quick check reported as unestablished, because a compound claim scored whole is judged against passages retrieved for one of its halves.
+
+The deep check does not change false endorsement. Endorsing a claim of a speedup of "roughly an order of magnitude" where the paper reports factors of 3 and 1.5 is a failure to read a quantity, not a failure to split a sentence.
+
+Scoring against the whole cited document rather than the retrieved passages was measured and is not used: accuracy fell to 0.787 from 0.809 on the direct claims, because widening the candidate set gives the passage selector more chances to settle on a passage that reads as decisive without addressing the claim.
+
+## Attribution
+
+`attribution.json` contains 17 claims that credit a work with originating something, scored on the binary scale: 1 where the cited paper is the origin, 0 where it is not. Claims labelled 0 name something the paper uses but did not introduce, which is the case a reader has to check.
+
+```bash
+uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/attribution.json --intent attribution
+```
+
+| | Value |
+|---|---|
+| Accuracy | 0.824 |
+| Correctly credited (1 scored 1) | 5 of 6 |
+| Wrongly credited (0 scored 1) | 2 of 11, a rate of 0.182 |
+| Missed credit (1 scored 0) | 1 of 6, a rate of 0.167 |
+
+The supporting score on this scale is 1, not 2, so the metrics take the supporting value as a parameter. Reporting attribution against the evidence scale gives a false endorsement rate of zero, because a score of 2 never occurs there.
+
+Both wrong credits are the same mistake: crediting a paper for a method it applies. `Brandes' algorithm for betweenness centrality was introduced by the cited authors` and `The Dolev-Yao threat model was introduced in the cited work` both score 1, because passages describing a method in use entail a claim about that method. Entailment does not separate using a technique from originating it, so attribution is weaker than the evidence scale on exactly the distinction it exists to make.
+
+A score of 1 on the attribution scale is displayed without a warning, so a wrong credit reaches the reader unmarked at the same rate as a false endorsement does on hedged prose. Set the intent by hand and read the evidence passage before relying on the score.
+
+## Citation intent
+
+Intent detection is off unless `KIWI_INTENT_MODEL` names a classifier. Four approaches were measured and none is usable as a default.
+
+| Approach | Result |
+|---|---|
+| SciCite-trained SciBERT classifier | Predicts `result` on 0 of 7 sentences, including three reporting results |
+| Zero-shot through the base alignment model | 3 of 7, against 2.3 expected by chance |
+| Zero-shot through the large alignment model | 8 of 15, against 5 expected by chance |
+| Purpose-built 12B and 14B classifiers | Generative models, not sequence classifiers, so they do not fit the Aligner interface |
+
+`result` is the only class routed to scoring, so the SciCite classifier scores no claims at all. The large alignment model has the opposite bias: it labels 12 of 15 sentences `result` and never labels one `background`, so it recovers every claim that should be scored and adds seven that should not be. Scoring a background citation on the evidence scale produces a judgement the scale does not measure.
+
+Without a classifier, every claim is treated as evidence and scored, and intent is set by hand through `PUT /align/intent` or the Drafts view. A hand-set intent overrides a detected one and persists across runs.
+
 ## Limitations
 
 - 50 pairs is a first pass on one field (computer science) and five papers. Treat differences smaller than a few points as noise.
 - Each paper is represented by exactly 10 pairs regardless of its length or complexity, so a chunker or retrieval-mode effect specific to one paper's structure could be masked or exaggerated by its other nine pairs.
 - The 3x hybrid weight was chosen by measuring against this golden set. It should be re-checked as the golden set grows or a second field is added.
 - Chunk size (the 256 to 512 token target band) was not swept; both chunkers used the default (512).
-- Generation is not evaluated here; this measures retrieval only.
+- Generation is not evaluated here.
+- The alignment set has 47 pairs across one field, and its claims are authored rather than drawn from published citing sentences. Contradiction recall in particular rests on 13 pairs.
+- Alignment is measured against the retrieved passages rather than the whole cited document.
+- The alignment claims and their labels were written by one person, so the figures measure agreement with a single reader rather than with a consensus.
+- The figures on direct claims do not carry over to hedged prose. On `alignment-hedged.json` accuracy falls from 0.851 to 0.625 and false endorsement rises from 0.000 to 0.125. Quantitative claims stated approximately are the weak case. Read 0.000 false endorsement as a property of direct claims, not of the aligner.

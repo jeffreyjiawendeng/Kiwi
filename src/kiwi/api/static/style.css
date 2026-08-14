@@ -349,6 +349,77 @@ th {
   background: #d3e2fa;
 }
 
+/* A supporting score is silent, a claim the work does not establish is
+   surfaced plainly, and an unsupported claim is flagged. */
+.claim {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.claim.score-2 {
+  border-left-color: var(--accent);
+}
+
+.claim.score-1 {
+  border-left-color: var(--warn);
+}
+
+.claim.score-0 {
+  border-left-color: var(--danger);
+  background: #fdf4f3;
+}
+
+.claim-text {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.claim-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.claim-meta label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-weight: 400;
+}
+
+.claim-meta select {
+  display: inline-block;
+  width: auto;
+  margin-top: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.claim-depths {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 6px;
+}
+
+.claim-evidence {
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  max-height: 6.5em;
+  overflow-y: auto;
+}
+
 .passage {
   border: 1px solid var(--border);
   border-radius: 8px;

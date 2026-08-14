@@ -3,7 +3,6 @@
 Required components are non-optional in the type; optional ones are
 ``| None``, so a configuration with no Generator or no Aligner is
 expressible in the type system rather than enforced by convention alone.
-See docs/02-interfaces.md, "Registry".
 """
 
 from __future__ import annotations
@@ -32,6 +31,7 @@ from kiwi.protocols import (
 __all__ = [
     "DEFAULT_GROBID_URL",
     "ComponentSet",
+    "default_aligner",
     "default_embedder",
     "default_generator",
     "default_ingestor",
@@ -40,6 +40,10 @@ __all__ = [
     "default_store",
     "index_dir",
 ]
+
+
+_embedder: Embedder | None = None
+_aligner: Aligner | None = None
 
 
 @dataclass(frozen=True)
@@ -64,8 +68,7 @@ def default_chunker() -> SectionAwareChunker:
 
 
 def index_dir(project_root: Path) -> Path:
-    """Where the Store persists. Derived and rebuildable, see
-    docs/03-workspace-format.md."""
+    """Where the Store persists. Derived and rebuildable."""
     return project_root / ".kiwi" / "index.lance"
 
 
@@ -76,16 +79,24 @@ def default_store(project_root: Path) -> LanceDBStore:
 def default_embedder() -> Embedder | None:
     """``None`` when the ``embed`` extra isn't installed, or when
     ``KIWI_NO_EMBED`` is set. The no-Embedder fallback (BM25 keyword
-    search) then applies automatically. See docs/11-components.md."""
+    search) then applies automatically.
+
+    The instance is reused across calls. Building a new one per query
+    reloads the model and re-checks it against the model host, which
+    dominates the cost of any operation that retrieves more than once.
+    """
+    global _embedder
     if os.environ.get("KIWI_NO_EMBED"):
         return None
     try:
         import sentence_transformers  # noqa: F401
     except ImportError:
         return None
-    from kiwi.components.embed.sentence_transformer import SentenceTransformerEmbedder
+    if _embedder is None:
+        from kiwi.components.embed.sentence_transformer import SentenceTransformerEmbedder
 
-    return SentenceTransformerEmbedder()
+        _embedder = SentenceTransformerEmbedder()
+    return _embedder
 
 
 def default_retriever(store: Store, embedder: Embedder | None) -> DefaultRetriever:
@@ -99,6 +110,27 @@ def default_generator() -> Generator | None:
     if not model:
         return None
     return LiteLLMGenerator(model=model)
+
+
+def default_aligner() -> Aligner | None:
+    """``None`` when the ``align`` extra isn't installed, or when
+    ``KIWI_NO_ALIGN`` is set. Citations are then shown without a score.
+
+    The instance is reused across calls, for the same reason as
+    :func:`default_embedder`.
+    """
+    global _aligner
+    if os.environ.get("KIWI_NO_ALIGN"):
+        return None
+    try:
+        import transformers  # noqa: F401
+    except ImportError:
+        return None
+    if _aligner is None:
+        from kiwi.components.align.nli import NLIAligner
+
+        _aligner = NLIAligner()
+    return _aligner
 
 
 def default_resolver() -> Resolver | None:

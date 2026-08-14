@@ -1,22 +1,47 @@
 """Shared index and query pipeline, used by both the CLI and the HTTP API
-so the two consumers stay in sync. See docs/06-architecture.md.
+so the two consumers stay in sync.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from difflib import SequenceMatcher
 from pathlib import Path
 
-from kiwi.protocols import Resolver
+from kiwi.claims import (
+    MANUAL,
+    REJECTED,
+    SCORED_INTENTS,
+    Claim,
+    decompose,
+    extract_claims,
+    supporting_score,
+)
+from kiwi.protocols import Aligner, Resolver
 from kiwi.registry import (
+    default_aligner,
     default_chunker,
     default_embedder,
     default_resolver,
     default_retriever,
     default_store,
 )
-from kiwi.types import Chunk, Document, Filter, Hit, ResolvedReference
-from kiwi.workspace import write_chunk_count, write_verification
+from kiwi.types import Alignment, Chunk, Depth, Document, Filter, Hit, Intent, ResolvedReference
+from kiwi.workspace import (
+    read_claims,
+    read_draft,
+    write_chunk_count,
+    write_claims,
+    write_verification,
+)
+
+# Passages retrieved per claim for the Aligner to choose between. See
+# eval/README.md for the measurement behind this value.
+_ALIGN_PASSAGES = 5
+
+# How close a reworded claim must be to its earlier text to be treated as
+# the same claim.
+_REWORD_THRESHOLD = 0.6
 
 
 def index_documents(project: Path, documents: Sequence[Document]) -> dict[str, int]:
@@ -25,7 +50,7 @@ def index_documents(project: Path, documents: Sequence[Document]) -> dict[str, i
     Re-indexing is idempotent: any existing chunks for a given document are
     replaced rather than duplicated. All chunks across every document are
     added to the Store in a single call, and optimised in a single pass,
-    rather than once per document. See docs/12-stack.md, "Store".
+    rather than once per document.
     """
     chunker = default_chunker()
     store = default_store(project)
@@ -65,6 +90,168 @@ def retrieve(project: Path, query: str, k: int, document_id: str | None = None) 
     retriever = default_retriever(store, embedder)
     filter_ = Filter(document_ids=(document_id,)) if document_id else None
     return retriever.retrieve(query, k, filter_)
+
+
+def _align_claim(
+    project: Path,
+    aligner: Aligner,
+    claim_text: str,
+    citation: str,
+    intent: Intent,
+    depth: Depth,
+) -> Alignment:
+    """Score one claim, splitting it into assertions at deep depth.
+
+    Each assertion is scored against evidence retrieved for it, so a
+    compound claim is not judged on passages found for one of its halves.
+    A compound claim is supported only where every assertion is supported,
+    and takes the lowest score any of its assertions was given.
+    """
+    parts = decompose(claim_text) if depth is Depth.DEEP else [claim_text]
+
+    judged = []
+    for part in parts:
+        hits = retrieve(project, part, _ALIGN_PASSAGES, citation)
+        judged.append(aligner.align(part, intent, [hit.chunk for hit in hits], depth))
+
+    if len(judged) == 1:
+        return judged[0]
+
+    supported = supporting_score(intent)
+    rejected = next((a for a in judged if a.score == REJECTED), None)
+    if rejected is not None:
+        return rejected
+    return next((a for a in judged if a.score != supported), judged[0])
+
+
+def _previous_record(claim: Claim, previous: Sequence[Claim]) -> Claim | None:
+    """Find the record a claim carried before the draft was last edited.
+
+    Matching is on text and citation together, because one sentence citing
+    two works produces two claims that carry separate scores and intent
+    overrides. Reworded claims fall back to the closest previous claim
+    citing the same work, so an edit leaves the earlier judgement in place
+    to be reported as stale rather than dropping it.
+    """
+    for candidate in previous:
+        if candidate.citation == claim.citation and candidate.anchor.exact == claim.anchor.exact:
+            return candidate
+
+    same_citation = [c for c in previous if c.citation == claim.citation]
+    if not same_citation:
+        return None
+    closest = max(
+        same_citation,
+        key=lambda c: SequenceMatcher(None, c.anchor.exact, claim.anchor.exact).ratio(),
+    )
+    ratio = SequenceMatcher(None, closest.anchor.exact, claim.anchor.exact).ratio()
+    return closest if ratio >= _REWORD_THRESHOLD else None
+
+
+def align_draft(
+    project: Path,
+    relpath: str,
+    aligner: Aligner | None = None,
+    depth: Depth = Depth.QUICK,
+) -> list[Claim]:
+    """Score every cited sentence in a draft against the work it cites.
+
+    Each claim is scored against the passage retrieved from the cited
+    document that best matches it. Intent overrides recorded in the
+    sidecar are preserved, and intents outside the scored set are recorded
+    without a score. Returns an empty list, with nothing written, if no
+    Aligner is configured.
+    """
+    aligner = aligner if aligner is not None else default_aligner()
+    if aligner is None:
+        return []
+
+    draft = read_draft(project, relpath)
+    page_id = str(draft["page_id"] or "")
+    previous_claims = read_claims(project, relpath)
+
+    scored: list[Claim] = []
+    for claim in extract_claims(str(draft["content"]), page_id):
+        previous = _previous_record(claim, previous_claims)
+        override = (
+            previous.intent if previous is not None and previous.intent_source == MANUAL else None
+        )
+        intent = override if override is not None else aligner.detect_intent(claim.anchor.exact, "")
+        source = MANUAL if override is not None else claim.intent_source
+
+        alignment = previous.alignment if previous is not None else None
+        deep_alignment = previous.deep_alignment if previous is not None else None
+        deep_claim = previous.deep_claim if previous is not None else None
+
+        if intent in SCORED_INTENTS:
+            result = _align_claim(
+                project, aligner, claim.anchor.exact, claim.citation, intent, depth
+            )
+            if depth is Depth.DEEP:
+                deep_alignment, deep_claim = result, claim.anchor.exact
+            else:
+                alignment = result
+
+        scored.append(
+            Claim(
+                anchor=claim.anchor,
+                citation=claim.citation,
+                intent=intent,
+                intent_source=source,
+                alignment=alignment,
+                deep_alignment=deep_alignment,
+                deep_claim=deep_claim,
+            )
+        )
+
+    write_claims(project, relpath, page_id, scored)
+    return scored
+
+
+def set_claim_intent(
+    project: Path,
+    relpath: str,
+    claim_text: str,
+    intent: str,
+    citation: str | None = None,
+) -> list[Claim]:
+    """Record a hand-set intent for the claim whose text is ``claim_text``.
+
+    Pass ``citation`` to single out one claim where a sentence cites more
+    than one work. The override persists and is reapplied on the next
+    alignment run.
+    """
+
+    def selected(claim: Claim) -> bool:
+        if claim.anchor.exact != claim_text:
+            return False
+        return citation is None or claim.citation == citation
+
+    def rescale(claim: Claim) -> Claim:
+        """Drop scores computed against a scale the claim no longer uses.
+
+        Evidence scores run 0 to 2 and attribution scores 0 to 1, so a
+        score kept across a change of intent would be read on the wrong
+        scale. The claim is reported unscored until it is checked again.
+        """
+        if not selected(claim):
+            return claim
+        new_intent = Intent(intent)
+        stale = new_intent is not claim.intent
+        return Claim(
+            anchor=claim.anchor,
+            citation=claim.citation,
+            intent=new_intent,
+            intent_source=MANUAL,
+            alignment=None if stale else claim.alignment,
+            deep_alignment=None if stale else claim.deep_alignment,
+            deep_claim=None if stale else claim.deep_claim,
+        )
+
+    updated = [rescale(claim) for claim in read_claims(project, relpath)]
+    draft = read_draft(project, relpath)
+    write_claims(project, relpath, str(draft["page_id"] or ""), updated)
+    return updated
 
 
 def verify_document(

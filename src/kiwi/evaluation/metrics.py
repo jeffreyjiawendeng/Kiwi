@@ -2,8 +2,7 @@
 query -> passage pairs.
 
 Retrieval is evaluated separately from generation. This measures whether
-the correct passage reached the model, not what the model did with it. See
-docs/14-evaluation.md.
+the correct passage reached the model, not what the model did with it.
 """
 
 from __future__ import annotations
@@ -53,8 +52,7 @@ def locate(pair: GoldenPair, document: Document) -> Anchor:
     Ingestor entirely, can shift them even though the passage itself
     hasn't changed. Rather than trust stale offsets, this resolves the
     same quote selector every Anchor uses, so the golden set stays valid
-    across re-parsing instead of being pinned to one ingestion run. See
-    docs/01-identifiers.md, "Resolution".
+    across re-parsing instead of being pinned to one ingestion run.
     """
     anchor = Anchor(
         document_id=pair.document_id,
@@ -83,8 +81,7 @@ def rank_of_match(golden_anchor: Anchor, hits: list[Hit]) -> int | None:
     depend on the chunker under test, so "did the right passage reach the
     model" is answered by span overlap against the same document, not by
     matching a chunk identifier that a different chunker would never
-    reproduce. See docs/01-identifiers.md on chunk IDs being derived,
-    per-chunker state.
+    reproduce.
     """
     for rank, hit in enumerate(hits, start=1):
         if _overlaps(golden_anchor, hit):

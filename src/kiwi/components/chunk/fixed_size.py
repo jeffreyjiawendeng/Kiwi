@@ -1,8 +1,7 @@
 """Fixed-size chunker, no section awareness.
 
-The evaluation harness's baseline. See docs/14-evaluation.md, "Method":
-"Establish a baseline using fixed-size chunking with no section
-awareness." Also a simple, standalone Chunker implementation.
+The evaluation harness's baseline, against which section-aware chunking
+is measured. Also a simple, standalone Chunker implementation.
 """
 
 from __future__ import annotations

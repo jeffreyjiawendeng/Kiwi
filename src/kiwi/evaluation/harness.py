@@ -1,7 +1,6 @@
 """Runs one Chunker configuration through indexing and retrieval for
-every golden query, then scores it. See docs/14-evaluation.md, "Method":
-change one component at a time and re-measure against a frozen corpus and
-golden set.
+every golden query, then scores it. One component changes at a time, and
+each configuration is measured against a frozen corpus and golden set.
 """
 
 from __future__ import annotations

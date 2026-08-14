@@ -21,24 +21,36 @@ from kiwi.workspace.pages import (
     write_note,
 )
 from kiwi.workspace.projects import list_known_projects, register_project
+from kiwi.workspace.sidecar import (
+    claim_to_dict,
+    read_claims,
+    read_sidecar,
+    sidecar_path,
+    write_claims,
+)
 
 __all__ = [
     "FORMAT_VERSION",
     "PathOutsideProject",
+    "claim_to_dict",
     "document_id",
     "init_project",
     "list_known_projects",
     "list_pages",
     "list_papers",
+    "read_claims",
     "read_document",
     "read_draft",
     "read_note",
+    "read_sidecar",
     "read_verification",
     "reference_to_dict",
     "register_project",
     "resolved_reference_to_dict",
     "section_to_dict",
+    "sidecar_path",
     "write_chunk_count",
+    "write_claims",
     "write_document",
     "write_draft",
     "write_note",

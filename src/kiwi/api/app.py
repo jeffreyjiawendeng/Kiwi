@@ -1,13 +1,13 @@
 """Local HTTP API.
 
 Exposes ingestion, indexing, verification, retrieval, and workspace
-operations over HTTP, and serves the bundled web interface. See
-docs/06-architecture.md and docs/12-stack.md, "Interface".
+operations over HTTP, and serves the bundled web interface.
 """
 
 from __future__ import annotations
 
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, UploadFile
@@ -17,16 +17,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from kiwi import __version__
-from kiwi.core import index_documents, retrieve, verify_document
+from kiwi.core import align_draft, index_documents, retrieve, set_claim_intent, verify_document
 from kiwi.protocols import IngestError
 from kiwi.registry import default_generator, default_ingestor
-from kiwi.types import Json
+from kiwi.types import Depth, Json
 from kiwi.workspace import (
     PathOutsideProject,
+    claim_to_dict,
     init_project,
     list_known_projects,
     list_pages,
     list_papers,
+    read_claims,
     read_document,
     read_draft,
     read_note,
@@ -41,6 +43,10 @@ from kiwi.workspace import (
 )
 
 app = FastAPI(title="Kiwi", version=__version__)
+
+
+def _now() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class IndexRequest(BaseModel):
@@ -63,6 +69,20 @@ class AskRequest(BaseModel):
 class OpenProjectRequest(BaseModel):
     path: str
     name: str | None = None
+
+
+class AlignRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+    depth: str = "quick"
+
+
+class ClaimIntentRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+    claim: str
+    intent: str
+    citation: str | None = None
 
 
 class PageWriteRequest(BaseModel):
@@ -152,10 +172,9 @@ def put_draft(relpath: str, request: PageWriteRequest) -> Json:
 async def ingest(file: UploadFile, project: str = Form("workspace.kiwi")) -> Json:
     """Parse an uploaded PDF and write it into ``project``.
 
-    ``project`` must be declared as a Form field explicitly: FastAPI does
-    not infer that a bare ``str`` parameter belongs to the multipart body
-    just because a sibling parameter is an ``UploadFile``. Without this it
-    silently resolves from the query string, or its default, instead.
+    ``project`` must be declared as a Form field explicitly. A bare
+    ``str`` parameter resolves from the query string, or from its
+    default, even where a sibling parameter is an ``UploadFile``.
     """
     ingestor = default_ingestor()
     health_check = ingestor.health()
@@ -241,6 +260,56 @@ def verify_papers(request: VerifyRequest) -> Json:
         verified[doc_id] = [resolved_reference_to_dict(r) for r in results]
 
     return {"verified": verified}
+
+
+@app.post("/align")
+def align_claims(request: AlignRequest) -> Json:
+    """Score each cited sentence in a draft against the work it cites.
+
+    ``depth`` is ``quick`` or ``deep``. A deep run splits compound claims
+    and scores each assertion against evidence retrieved for it.
+    """
+    try:
+        depth = Depth(request.depth)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"unknown depth: {request.depth}") from exc
+    try:
+        claims = align_draft(Path(request.project), request.draft, depth=depth)
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="draft not found") from exc
+    return {"claims": [claim_to_dict(claim, _now()) for claim in claims]}
+
+
+@app.get("/align/{relpath:path}")
+def get_claims(relpath: str, project: str = "workspace.kiwi") -> Json:
+    """Claims recorded for a draft, or an empty list if never scored."""
+    try:
+        claims = read_claims(Path(project), relpath)
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"claims": [claim_to_dict(claim, _now()) for claim in claims]}
+
+
+@app.put("/align/intent")
+def put_claim_intent(request: ClaimIntentRequest) -> Json:
+    """Override the detected intent for one claim."""
+    try:
+        claims = set_claim_intent(
+            Path(request.project),
+            request.draft,
+            request.claim,
+            request.intent,
+            citation=request.citation,
+        )
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"unknown intent: {request.intent}") from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="draft not found") from exc
+    return {"claims": [claim_to_dict(claim, _now()) for claim in claims]}
 
 
 @app.get("/papers/{document_id}/verification")

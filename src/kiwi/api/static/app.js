@@ -233,6 +233,100 @@ function renderCitations(content) {
   );
 }
 
+// Evidence scores run 0 to 2; attribution is binary and its 1 means the
+// cited work is the origin, not that it half supports something.
+const SCORE_LABEL = {
+  evidence: {
+    0: "does not support this claim",
+    1: "relevant, does not establish this claim",
+    2: "supports this claim",
+  },
+  attribution: {
+    0: "is not the origin of this",
+    1: "is the origin of this",
+  },
+};
+
+function scoreLabel(intent, score) {
+  const scale = SCORE_LABEL[intent] || SCORE_LABEL.evidence;
+  return scale[score] ?? "scored";
+}
+
+// The class sets the emphasis: flagged, plain, or silent.
+function scoreClass(intent, score) {
+  if (intent === "attribution") return score === 1 ? "score-2" : "score-0";
+  return `score-${score}`;
+}
+const INTENTS = ["evidence", "attribution", "background", "methods", "contrast"];
+
+function renderClaim(claim) {
+  // A supporting score is reported without emphasis, a claim the work
+  // does not establish is stated plainly, and an unsupported claim is
+  // flagged.
+  const shown = claim.deep_alignment || claim.alignment;
+  const cls = shown ? scoreClass(claim.intent, shown.score) : "score-none";
+  const intentOptions = INTENTS.map(
+    (i) => `<option value="${i}"${claim.intent === i ? " selected" : ""}>${i}</option>`
+  ).join("");
+
+  let depths = "";
+  if (claim.alignment && claim.deep_alignment && claim.alignment.score !== claim.deep_alignment.score) {
+    depths = `<div class="claim-depths">quick ${claim.alignment.score} · deep ${claim.deep_alignment.score}</div>`;
+  } else if (shown) {
+    depths = `<div class="claim-depths">${shown.depth}</div>`;
+  }
+
+  const stale = claim.deep_alignment && claim.deep_alignment.stale
+    ? '<span class="badge issues">stale</span>'
+    : "";
+
+  const evidence = shown && shown.evidence
+    ? `<div class="claim-evidence">${escapeHtml(shown.evidence.exact)}</div>`
+    : '<div class="claim-evidence muted">No passage was read for this claim.</div>';
+
+  return `<div class="claim ${cls}" data-claim="${escapeHtml(claim.anchor.exact)}" data-citation="${escapeHtml(claim.citation)}">
+    <div class="claim-text">${escapeHtml(claim.anchor.exact)}</div>
+    <div class="claim-meta">
+      ${shown ? `<strong>${escapeHtml(paperTitle(claim.citation))}</strong> ${escapeHtml(scoreLabel(claim.intent, shown.score))}` : `<strong>${escapeHtml(paperTitle(claim.citation))}</strong> not scored`}
+      ${stale}
+      <label>intent
+        <select class="claim-intent">${intentOptions}</select>
+      </label>
+    </div>
+    ${depths}
+    ${evidence}
+  </div>`;
+}
+
+function renderClaims(container, relpath, claims) {
+  if (!claims.length) {
+    container.innerHTML = '<p class="muted">No cited sentences found. Citations are written as <code>[@doc_id]</code>.</p>';
+    return;
+  }
+  container.innerHTML = claims.map(renderClaim).join("");
+  $$(".claim-intent", container).forEach((select) =>
+    select.addEventListener(
+      "change",
+      wrapAsync(async (event) => {
+        const claim = event.target.closest(".claim");
+        const body = await api("/align/intent", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project: state.project,
+            draft: relpath,
+            claim: claim.dataset.claim,
+            citation: claim.dataset.citation,
+            intent: event.target.value,
+          }),
+        });
+        renderClaims(container, relpath, body.claims);
+        setStatus(state.project, "Intent set");
+      })
+    )
+  );
+}
+
 async function showDraft(relpath) {
   const draft = await api(`/drafts/${relpath}?project=${encodeURIComponent(state.project)}`);
   $("#view-draft").innerHTML = `
@@ -242,10 +336,16 @@ async function showDraft(relpath) {
       <textarea id="draft-content">${escapeHtml(draft.content)}</textarea>
       <div class="preview" id="draft-preview"></div>
     </div>
-    <p><button class="btn-primary" id="save-draft-btn">Save</button></p>
+    <p>
+      <button class="btn-primary" id="save-draft-btn">Save</button>
+      <button class="btn-secondary" id="check-claims-btn">Check claims</button>
+      <button class="btn-secondary" id="check-claims-deep-btn">Check in depth</button>
+    </p>
+    <div id="draft-claims"></div>
   `;
   const textarea = $("#draft-content");
   const preview = $("#draft-preview");
+  const claimsPanel = $("#draft-claims");
 
   const updatePreview = () => {
     preview.innerHTML = renderCitations(textarea.value) || '<span class="muted">Nothing written yet.</span>';
@@ -256,14 +356,41 @@ async function showDraft(relpath) {
   updatePreview();
   textarea.addEventListener("input", updatePreview);
 
-  $("#save-draft-btn").addEventListener("click", async () => {
+  const save = async () => {
     await api(`/drafts/${relpath}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project: state.project, content: textarea.value }),
     });
-    setStatus(state.project, "Draft saved");
-  });
+  };
+
+  $("#save-draft-btn").addEventListener(
+    "click",
+    wrapAsync(async () => {
+      await save();
+      setStatus(state.project, "Draft saved");
+    })
+  );
+
+  const check = (depth) =>
+    wrapAsync(async () => {
+      await save();
+      claimsPanel.innerHTML = '<p class="muted">Checking claims…</p>';
+      const body = await api("/align", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: state.project, draft: relpath, depth }),
+      });
+      renderClaims(claimsPanel, relpath, body.claims);
+      setStatus(state.project, `Claims checked (${depth})`);
+    });
+
+  $("#check-claims-btn").addEventListener("click", check("quick"));
+  $("#check-claims-deep-btn").addEventListener("click", check("deep"));
+
+  const existing = await api(`/align/${relpath}?project=${encodeURIComponent(state.project)}`);
+  if (existing.claims.length) renderClaims(claimsPanel, relpath, existing.claims);
+
   showView("draft");
 }
 
@@ -331,7 +458,7 @@ function renderAskResults(body) {
     html += `<p class="muted">No Generator configured. Showing ranked passages.</p>`;
   }
   if (!body.passages.length) {
-    html += `<p class="muted">No results. Have you run indexing for this project?</p>`;
+    html += `<p class="muted">No results. Index the project before searching it.</p>`;
   } else {
     html += "<h2>Passages</h2>";
     for (const passage of body.passages) {
