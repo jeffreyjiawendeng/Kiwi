@@ -17,21 +17,45 @@ from kiwi.claims import (
     extract_claims,
     supporting_score,
 )
-from kiwi.protocols import Aligner, Resolver
+from kiwi.protocols import Aligner, Generator, Resolver
 from kiwi.registry import (
     default_aligner,
     default_chunker,
     default_embedder,
+    default_generator,
     default_resolver,
     default_retriever,
     default_store,
 )
-from kiwi.types import Alignment, Chunk, Depth, Document, Filter, Hit, Intent, ResolvedReference
+from kiwi.suggestions import (
+    ALIGNMENT,
+    SuggestionNotApplicable,
+    SuggestionNotFound,
+    apply_to,
+    new_suggestion,
+    pending,
+    resolved,
+)
+from kiwi.types import (
+    Alignment,
+    Chunk,
+    Depth,
+    Document,
+    Filter,
+    Hit,
+    Intent,
+    ResolvedReference,
+    Suggestion,
+    SuggestionState,
+)
 from kiwi.workspace import (
     read_claims,
     read_draft,
+    read_suggestions,
     write_chunk_count,
     write_claims,
+    write_draft,
+    write_suggestions,
     write_verification,
 )
 
@@ -251,6 +275,93 @@ def set_claim_intent(
     updated = [rescale(claim) for claim in read_claims(project, relpath)]
     draft = read_draft(project, relpath)
     write_claims(project, relpath, str(draft["page_id"] or ""), updated)
+    return updated
+
+
+def _revision_instruction(alignment: Alignment) -> str:
+    passage = alignment.evidence.exact if alignment.evidence is not None else ""
+    if not passage:
+        return (
+            "The cited work does not support this claim. Revise the claim so "
+            "that it is not stated more strongly than a source supports."
+        )
+    return (
+        "The cited work does not support this claim. Revise the claim so that "
+        "it states only what the passage below establishes, keeping the "
+        f"author's wording where it still holds.\n\nPassage:\n{passage}"
+    )
+
+
+def suggest_draft(
+    project: Path, relpath: str, generator: Generator | None = None
+) -> list[Suggestion]:
+    """Propose a revision for each claim its citation does not support.
+
+    A claim scored 0 is one the cited work contradicts, so the revision is
+    proposed against the evidence passage the score was computed from. A
+    claim already carrying a pending suggestion is skipped, so running
+    this twice does not stack duplicate proposals on one sentence. The
+    suggestions are recorded pending and the draft is left unchanged.
+
+    Returns an empty list, with nothing written, if no Generator is
+    configured or no claim scores 0.
+    """
+    generator = generator if generator is not None else default_generator()
+    if generator is None:
+        return []
+
+    draft = read_draft(project, relpath)
+    existing = read_suggestions(project, relpath)
+    spoken_for = {s.anchor.exact for s in pending(existing)}
+
+    created: list[Suggestion] = []
+    for claim in read_claims(project, relpath):
+        alignment = claim.deep_alignment or claim.alignment
+        if alignment is None or alignment.score != REJECTED:
+            continue
+        if claim.anchor.exact in spoken_for:
+            continue
+        for proposal in generator.suggest(claim.anchor.exact, _revision_instruction(alignment)):
+            if proposal and proposal != claim.anchor.exact:
+                created.append(new_suggestion(claim.anchor, proposal, ALIGNMENT))
+
+    if created:
+        write_suggestions(project, relpath, str(draft["page_id"] or ""), existing + created)
+    return created
+
+
+def accept_suggestion(project: Path, relpath: str, suggestion_id: str) -> list[Suggestion]:
+    """Apply a pending suggestion to the draft and record the acceptance."""
+    return _resolve_suggestion(project, relpath, suggestion_id, SuggestionState.ACCEPTED)
+
+
+def reject_suggestion(project: Path, relpath: str, suggestion_id: str) -> list[Suggestion]:
+    """Record a pending suggestion as rejected. The draft is unchanged."""
+    return _resolve_suggestion(project, relpath, suggestion_id, SuggestionState.REJECTED)
+
+
+def _resolve_suggestion(
+    project: Path, relpath: str, suggestion_id: str, state: SuggestionState
+) -> list[Suggestion]:
+    """Record one suggestion as accepted or rejected.
+
+    The draft is written before the state is recorded, so a change that
+    cannot be applied leaves the suggestion pending rather than marking it
+    accepted against text it never reached.
+    """
+    suggestions = read_suggestions(project, relpath)
+    target = next((s for s in suggestions if s.suggestion_id == suggestion_id), None)
+    if target is None:
+        raise SuggestionNotFound(f"no suggestion {suggestion_id} on {relpath}")
+    if target.state is not SuggestionState.PENDING:
+        raise SuggestionNotApplicable(f"{suggestion_id} is already {target.state.value}")
+
+    draft = read_draft(project, relpath)
+    if state is SuggestionState.ACCEPTED:
+        write_draft(project, relpath, apply_to(target, str(draft["content"])))
+
+    updated = [resolved(s, state) if s.suggestion_id == suggestion_id else s for s in suggestions]
+    write_suggestions(project, relpath, str(draft["page_id"] or ""), updated)
     return updated
 
 

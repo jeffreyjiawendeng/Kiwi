@@ -7,6 +7,7 @@ operations over HTTP, and serves the bundled web interface.
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,26 +18,43 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from kiwi import __version__
-from kiwi.core import align_draft, index_documents, retrieve, set_claim_intent, verify_document
+from kiwi.core import (
+    accept_suggestion,
+    align_draft,
+    index_documents,
+    reject_suggestion,
+    retrieve,
+    set_claim_intent,
+    suggest_draft,
+    verify_document,
+)
 from kiwi.protocols import IngestError
 from kiwi.registry import default_generator, default_ingestor
-from kiwi.types import Depth, Json
+from kiwi.suggestions import SuggestionNotApplicable, SuggestionNotFound
+from kiwi.types import AnnotationKind, Depth, Json, Suggestion
 from kiwi.workspace import (
     PathOutsideProject,
+    annotate,
+    annotation_to_dict,
+    authors,
     claim_to_dict,
+    delete_annotation,
     init_project,
     list_known_projects,
     list_pages,
     list_papers,
+    read_annotations,
     read_claims,
     read_document,
     read_draft,
     read_note,
+    read_suggestions,
     read_verification,
     reference_to_dict,
     register_project,
     resolved_reference_to_dict,
     section_to_dict,
+    suggestion_to_dict,
     write_document,
     write_draft,
     write_note,
@@ -83,6 +101,35 @@ class ClaimIntentRequest(BaseModel):
     claim: str
     intent: str
     citation: str | None = None
+
+
+class SuggestRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+
+
+class SuggestionActionRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+    suggestion_id: str
+
+
+class AnnotateRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    document_id: str
+    exact: str
+    kind: str = "highlight"
+    body: str = ""
+    color: str = "yellow"
+    author: str = "local"
+    section_path: str = ""
+
+
+class CiteInDraftRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+    document_id: str
+    quoted: str = ""
 
 
 class PageWriteRequest(BaseModel):
@@ -310,6 +357,136 @@ def put_claim_intent(request: ClaimIntentRequest) -> Json:
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="draft not found") from exc
     return {"claims": [claim_to_dict(claim, _now()) for claim in claims]}
+
+
+@app.post("/suggest")
+def create_suggestions(request: SuggestRequest) -> Json:
+    """Propose a revision for each claim its citation does not support.
+
+    Returns an empty list when no Generator is configured, when no claim
+    scores 0, or when every such claim already carries a pending
+    suggestion. The draft is unchanged either way.
+    """
+    try:
+        created = suggest_draft(Path(request.project), request.draft)
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="draft not found") from exc
+    return {"suggestions": [suggestion_to_dict(s) for s in created]}
+
+
+@app.post("/suggestions/accept")
+def post_accept_suggestion(request: SuggestionActionRequest) -> Json:
+    """Apply a pending suggestion to the draft."""
+    return _resolve_suggestion(request, accept_suggestion)
+
+
+@app.post("/suggestions/reject")
+def post_reject_suggestion(request: SuggestionActionRequest) -> Json:
+    """Record a pending suggestion as rejected. The draft is unchanged."""
+    return _resolve_suggestion(request, reject_suggestion)
+
+
+def _resolve_suggestion(
+    request: SuggestionActionRequest,
+    operation: Callable[[Path, str, str], list[Suggestion]],
+) -> Json:
+    try:
+        suggestions = operation(Path(request.project), request.draft, request.suggestion_id)
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SuggestionNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except SuggestionNotApplicable as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="draft not found") from exc
+    return {"suggestions": [suggestion_to_dict(s) for s in suggestions]}
+
+
+@app.get("/suggestions/{relpath:path}")
+def get_suggestions(relpath: str, project: str = "workspace.kiwi") -> Json:
+    """Suggestions recorded for a draft, whatever their state."""
+    try:
+        suggestions = read_suggestions(Path(project), relpath)
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"suggestions": [suggestion_to_dict(s) for s in suggestions]}
+
+
+@app.get("/annotations/{document_id}")
+def get_annotations(
+    document_id: str = PathParam(..., pattern=r"^doc_[0-9a-f]{16}$"),
+    project: str = "workspace.kiwi",
+    author: str | None = None,
+) -> Json:
+    """Annotations on a paper, optionally narrowed to one author."""
+    recorded = read_annotations(Path(project), document_id)
+    shown = [a for a in recorded if author is None or a.author == author]
+    return {
+        "annotations": [annotation_to_dict(a) for a in shown],
+        "authors": authors(recorded),
+    }
+
+
+@app.post("/annotations")
+def post_annotation(request: AnnotateRequest) -> Json:
+    """Record a highlight or a note over a passage in a paper."""
+    try:
+        kind = AnnotationKind(request.kind)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"unknown kind: {request.kind}") from exc
+    try:
+        annotation = annotate(
+            Path(request.project),
+            request.document_id,
+            request.exact,
+            kind=kind,
+            body=request.body,
+            color=request.color,
+            author=request.author,
+            section_path=request.section_path,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="paper not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"annotation": annotation_to_dict(annotation)}
+
+
+@app.delete("/annotations/{document_id}/{annotation_id}")
+def remove_annotation(
+    document_id: str = PathParam(..., pattern=r"^doc_[0-9a-f]{16}$"),
+    annotation_id: str = PathParam(...),
+    project: str = "workspace.kiwi",
+) -> Json:
+    """Delete one annotation. Returns what remains on the paper."""
+    remaining = delete_annotation(Path(project), document_id, annotation_id)
+    return {"annotations": [annotation_to_dict(a) for a in remaining]}
+
+
+@app.post("/drafts/cite")
+def cite_in_draft(request: CiteInDraftRequest) -> Json:
+    """Append a citation to a draft, quoting the passage where given.
+
+    This is the path from reading a paper to writing about it, so the
+    citation marker is written in the same form the aligner reads.
+    """
+    try:
+        draft = read_draft(Path(request.project), request.draft)
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="draft not found") from exc
+
+    quoted = request.quoted.strip().rstrip(".")
+    # A quoted passage is written as a full sentence so the claim extractor
+    # reads it the same way as anything else the author types.
+    addition = f"{quoted} [@{request.document_id}]." if quoted else f"[@{request.document_id}]"
+    content = str(draft["content"]).rstrip()
+    updated = f"{content}\n\n{addition}" if content else addition
+    return write_draft(Path(request.project), request.draft, updated)
 
 
 @app.get("/papers/{document_id}/verification")

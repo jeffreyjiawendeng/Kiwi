@@ -7,6 +7,7 @@ commands over the same core the HTTP API and web interface use.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 
 import typer
@@ -14,7 +15,15 @@ import typer
 from kiwi.components.chunk.fixed_size import FixedSizeChunker
 from kiwi.components.chunk.section_aware import SectionAwareChunker
 from kiwi.components.resolve.crossref import CrossrefResolver
-from kiwi.core import align_draft, index_documents, retrieve, verify_document
+from kiwi.core import (
+    accept_suggestion,
+    align_draft,
+    index_documents,
+    reject_suggestion,
+    retrieve,
+    suggest_draft,
+    verify_document,
+)
 from kiwi.protocols import IngestError
 from kiwi.registry import (
     DEFAULT_GROBID_URL,
@@ -295,6 +304,138 @@ def evaluate(
                 for k in sorted(result.metrics.recall_at):
                     typer.echo(f"  Recall@{k}: {result.metrics.recall_at[k]:.3f}")
                 typer.echo(f"  MRR:      {result.metrics.mrr:.3f}\n")
+
+
+@app.command()
+def suggest(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+) -> None:
+    """Propose a revision for each claim its citation does not support."""
+    created = suggest_draft(project, draft)
+    if not created:
+        typer.secho(
+            "No suggestions. Run `kiwi align` first, or set KIWI_GENERATOR_MODEL.", fg="yellow"
+        )
+        raise typer.Exit(code=1)
+
+    for suggestion in created:
+        typer.secho(suggestion.suggestion_id, bold=True)
+        typer.secho(f"  - {suggestion.anchor.exact}", fg="red")
+        typer.secho(f"  + {suggestion.proposed}", fg="green")
+
+
+@app.command()
+def suggestions(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    state: str = typer.Option("pending", "--state", help="pending, accepted, rejected, or all."),
+) -> None:
+    """List the suggestions recorded for a draft."""
+    from kiwi.workspace import read_suggestions
+
+    recorded = read_suggestions(project, draft)
+    shown = [s for s in recorded if state == "all" or s.state.value == state]
+    if not shown:
+        typer.secho(f"No {state} suggestions for {draft}.", fg="yellow")
+        return
+
+    for suggestion in shown:
+        typer.secho(f"{suggestion.suggestion_id}  [{suggestion.state.value}]", bold=True)
+        typer.echo(f"  origin: {suggestion.origin}")
+        typer.secho(f"  - {suggestion.anchor.exact}", fg="red")
+        typer.secho(f"  + {suggestion.proposed}", fg="green")
+
+
+@app.command()
+def accept(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    suggestion_id: str = typer.Argument(..., help="Identifier reported by `kiwi suggest`."),
+) -> None:
+    """Apply a pending suggestion to the draft."""
+    _resolve(accept_suggestion, project, draft, suggestion_id, "accepted")
+
+
+@app.command()
+def reject(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    suggestion_id: str = typer.Argument(..., help="Identifier reported by `kiwi suggest`."),
+) -> None:
+    """Record a pending suggestion as rejected. The draft is unchanged."""
+    _resolve(reject_suggestion, project, draft, suggestion_id, "rejected")
+
+
+def _resolve(
+    operation: Callable[[Path, str, str], object],
+    project: Path,
+    draft: str,
+    suggestion_id: str,
+    outcome: str,
+) -> None:
+    from kiwi.suggestions import SuggestionNotApplicable, SuggestionNotFound
+
+    try:
+        operation(project, draft, suggestion_id)
+    except (SuggestionNotFound, SuggestionNotApplicable) as exc:
+        typer.secho(str(exc), fg="red")
+        raise typer.Exit(code=1) from exc
+    typer.secho(f"{suggestion_id} {outcome}.", fg="green")
+
+
+@app.command()
+def annotate(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    document_id: str = typer.Argument(..., help="Paper identifier."),
+    passage: str = typer.Argument(..., help="Exact passage to mark."),
+    note: str = typer.Option(
+        "", "--note", help="Commentary. Records a note rather than a highlight."
+    ),
+    color: str = typer.Option("yellow", "--color", help="Highlight colour."),
+    author: str = typer.Option("local", "--author", help="Who made the annotation."),
+) -> None:
+    """Mark a passage in a paper. The source PDF is not modified."""
+    from kiwi.types import AnnotationKind
+    from kiwi.workspace import annotate as record
+
+    kind = AnnotationKind.NOTE if note else AnnotationKind.HIGHLIGHT
+    try:
+        annotation = record(
+            project, document_id, passage, kind=kind, body=note, color=color, author=author
+        )
+    except FileNotFoundError as exc:
+        typer.secho(f"Paper not found: {document_id}", fg="red")
+        raise typer.Exit(code=1) from exc
+    except ValueError as exc:
+        typer.secho(str(exc), fg="red")
+        raise typer.Exit(code=1) from exc
+
+    typer.secho(f"{annotation.annotation_id} [{annotation.kind.value}]", fg="green")
+
+
+@app.command("annotations")
+def list_annotations(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    document_id: str = typer.Argument(..., help="Paper identifier."),
+    author: str = typer.Option("", "--author", help="Show only one author's annotations."),
+) -> None:
+    """List the annotations recorded on a paper."""
+    from kiwi.workspace import read_annotations
+
+    recorded = read_annotations(project, document_id)
+    shown = [a for a in recorded if not author or a.author == author]
+    if not shown:
+        typer.secho(f"No annotations on {document_id}.", fg="yellow")
+        return
+
+    for annotation in shown:
+        typer.secho(
+            f"{annotation.annotation_id} [{annotation.kind.value}] {annotation.author}", bold=True
+        )
+        typer.echo(f"  {annotation.anchor.exact[:110]}")
+        if annotation.body:
+            typer.echo(f"  note: {annotation.body}")
 
 
 @app.command("evaluate-alignment")

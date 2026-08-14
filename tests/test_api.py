@@ -263,3 +263,220 @@ def test_web_interface_is_served_and_root_redirects() -> None:
     root_response = client.get("/", follow_redirects=False)
     assert root_response.status_code in (307, 308)
     assert root_response.headers["location"] == "/app/"
+
+
+def _draft_with_a_contradicted_claim(tmp_path: Path) -> tuple[Path, str]:
+    from kiwi.claims import Claim
+    from kiwi.types import Alignment, Anchor, Depth, Intent
+    from kiwi.workspace import write_claims, write_draft
+
+    project = tmp_path / "Demo.kiwi"
+    init_project(project, name="Demo")
+    citation = "doc_aaaaaaaaaaaaaaaa"
+    claim_text = "Accuracy exceeded 95 percent"
+    write_draft(project, "intro.md", f"{claim_text} [@{citation}].")
+    claim = Claim(
+        anchor=Anchor(
+            document_id="pg_1",
+            section_path="",
+            start=0,
+            end=len(claim_text),
+            exact=claim_text,
+            prefix="",
+            suffix=f" [@{citation}].",
+        ),
+        citation=citation,
+        intent=Intent.EVIDENCE,
+        alignment=Alignment(
+            score=0,
+            intent=Intent.EVIDENCE,
+            depth=Depth.QUICK,
+            evidence=Anchor(
+                document_id=citation,
+                section_path="Results",
+                start=0,
+                end=27,
+                exact="Accuracy reached 71 percent",
+                prefix="",
+                suffix="",
+            ),
+            model="test",
+        ),
+    )
+    write_claims(project, "intro.md", "pg_1", [claim])
+    return project, claim_text
+
+
+def test_suggest_without_a_generator_proposes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project, _ = _draft_with_a_contradicted_claim(tmp_path)
+    monkeypatch.delenv("KIWI_GENERATOR_MODEL", raising=False)
+
+    response = client.post("/suggest", json={"project": str(project), "draft": "intro.md"})
+    assert response.status_code == 200
+    assert response.json()["suggestions"] == []
+
+
+def test_suggestions_accept_applies_the_change_to_the_draft(tmp_path: Path) -> None:
+    from kiwi.suggestions import ALIGNMENT, new_suggestion
+    from kiwi.types import Anchor
+    from kiwi.workspace import write_suggestions
+
+    project, claim_text = _draft_with_a_contradicted_claim(tmp_path)
+    suggestion = new_suggestion(
+        Anchor(
+            document_id="pg_1",
+            section_path="",
+            start=0,
+            end=len(claim_text),
+            exact=claim_text,
+            prefix="",
+            suffix="",
+        ),
+        "Accuracy reached 71 percent",
+        ALIGNMENT,
+    )
+    write_suggestions(project, "intro.md", "pg_1", [suggestion])
+
+    listed = client.get(f"/suggestions/intro.md?project={project}")
+    assert listed.status_code == 200
+    assert len(listed.json()["suggestions"]) == 1
+
+    accepted = client.post(
+        "/suggestions/accept",
+        json={
+            "project": str(project),
+            "draft": "intro.md",
+            "suggestion_id": suggestion.suggestion_id,
+        },
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["suggestions"][0]["state"] == "accepted"
+
+    draft = client.get(f"/drafts/intro.md?project={project}")
+    assert "Accuracy reached 71 percent" in draft.json()["content"]
+
+
+def test_resolving_a_suggestion_twice_returns_409(tmp_path: Path) -> None:
+    from kiwi.suggestions import ALIGNMENT, new_suggestion
+    from kiwi.types import Anchor
+    from kiwi.workspace import write_suggestions
+
+    project, claim_text = _draft_with_a_contradicted_claim(tmp_path)
+    suggestion = new_suggestion(
+        Anchor(
+            document_id="pg_1",
+            section_path="",
+            start=0,
+            end=len(claim_text),
+            exact=claim_text,
+            prefix="",
+            suffix="",
+        ),
+        "Accuracy reached 71 percent",
+        ALIGNMENT,
+    )
+    write_suggestions(project, "intro.md", "pg_1", [suggestion])
+    body = {
+        "project": str(project),
+        "draft": "intro.md",
+        "suggestion_id": suggestion.suggestion_id,
+    }
+    assert client.post("/suggestions/reject", json=body).status_code == 200
+    assert client.post("/suggestions/reject", json=body).status_code == 409
+
+
+def test_unknown_suggestion_returns_404(tmp_path: Path) -> None:
+    project, _ = _draft_with_a_contradicted_claim(tmp_path)
+    response = client.post(
+        "/suggestions/accept",
+        json={"project": str(project), "draft": "intro.md", "suggestion_id": "sug_missing"},
+    )
+    assert response.status_code == 404
+
+
+def test_annotate_and_list_with_an_author_filter(tmp_path: Path) -> None:
+    project, doc_id = _seeded_project(tmp_path)
+    passage = "Section-aware chunking outperformed fixed-size splitting"
+
+    created = client.post(
+        "/annotations",
+        json={
+            "project": str(project),
+            "document_id": doc_id,
+            "exact": passage,
+            "kind": "note",
+            "body": "check the 512 baseline",
+            "author": "wei",
+        },
+    )
+    assert created.status_code == 200
+    assert created.json()["annotation"]["target"]["selector"]["exact"] == passage
+
+    client.post(
+        "/annotations",
+        json={
+            "project": str(project),
+            "document_id": doc_id,
+            "exact": "Structure-preserving parsing",
+            "author": "lee",
+        },
+    )
+
+    everyone = client.get(f"/annotations/{doc_id}?project={project}")
+    assert len(everyone.json()["annotations"]) == 2
+    assert everyone.json()["authors"] == ["lee", "wei"]
+
+    filtered = client.get(f"/annotations/{doc_id}?project={project}&author=wei")
+    assert len(filtered.json()["annotations"]) == 1
+    assert filtered.json()["annotations"][0]["author"] == "wei"
+
+
+def test_annotating_a_passage_that_is_absent_returns_422(tmp_path: Path) -> None:
+    project, doc_id = _seeded_project(tmp_path)
+    response = client.post(
+        "/annotations",
+        json={"project": str(project), "document_id": doc_id, "exact": "not in this paper"},
+    )
+    assert response.status_code == 422
+
+
+def test_annotation_can_be_deleted(tmp_path: Path) -> None:
+    project, doc_id = _seeded_project(tmp_path)
+    created = client.post(
+        "/annotations",
+        json={
+            "project": str(project),
+            "document_id": doc_id,
+            "exact": "Structure-preserving parsing",
+        },
+    )
+    annotation_id = created.json()["annotation"]["id"]
+
+    deleted = client.delete(f"/annotations/{doc_id}/{annotation_id}?project={project}")
+    assert deleted.status_code == 200
+    assert deleted.json()["annotations"] == []
+
+
+def test_cite_in_draft_appends_a_citation_marker(tmp_path: Path) -> None:
+    project, doc_id = _seeded_project(tmp_path)
+    client.put(
+        "/drafts/intro.md",
+        json={"project": str(project), "content": "Opening sentence."},
+    )
+
+    response = client.post(
+        "/drafts/cite",
+        json={
+            "project": str(project),
+            "draft": "intro.md",
+            "document_id": doc_id,
+            "quoted": "Section-aware chunking outperformed fixed-size splitting",
+        },
+    )
+    assert response.status_code == 200
+    content = response.json()["content"]
+    assert "Opening sentence." in content
+    assert f"[@{doc_id}]." in content
+    assert "Section-aware chunking" in content

@@ -168,6 +168,13 @@ async function showPaper(documentId) {
     </p>
     <h2>Sections</h2>
     <ul>${paper.sections.map((s) => `<li>${"&nbsp;&nbsp;".repeat(s.level - 1)}${escapeHtml(s.title || s.path)}</li>`).join("")}</ul>
+    <h2>Text</h2>
+    <p class="muted">Select a passage to highlight it, note it, or cite it in a draft.</p>
+    <div id="selection-actions" hidden></div>
+    <div id="paper-text" class="paper-text"></div>
+    <h2>Annotations</h2>
+    <div id="annotation-filter"></div>
+    <div id="paper-annotations"></div>
     <h2>References</h2>
     <table>
       <thead><tr><th>Title</th><th>Year</th><th>DOI</th><th>Status</th></tr></thead>
@@ -178,7 +185,178 @@ async function showPaper(documentId) {
     navigator.clipboard.writeText(`[@${documentId}]`);
     setStatus(state.project, "Citation marker copied");
   });
+
+  await setUpAnnotating(documentId, paper.text);
   showView("paper");
+}
+
+// ---------------------------------------------------------- annotations
+
+// Annotation offsets index the paper's normalised text, which is what the
+// reading surface renders, so a stored span maps onto it directly.
+function renderPaperText(text, annotations) {
+  const marks = [...annotations].sort((a, b) => a.target.selector.start - b.target.selector.start);
+  let html = "";
+  let cursor = 0;
+  for (const annotation of marks) {
+    const { start, end } = annotation.target.selector;
+    if (start < cursor || end > text.length) continue; // overlapping or stale
+    html += escapeHtml(text.slice(cursor, start));
+    html += `<mark class="annotation-mark ${escapeHtml(annotation.kind)}" title="${escapeHtml(annotation.body || annotation.author)}">${escapeHtml(text.slice(start, end))}</mark>`;
+    cursor = end;
+  }
+  return html + escapeHtml(text.slice(cursor));
+}
+
+function renderAnnotation(annotation) {
+  const body = annotation.body
+    ? `<div class="annotation-body">${escapeHtml(annotation.body)}</div>`
+    : "";
+  return `<div class="annotation" data-id="${escapeHtml(annotation.id)}">
+    <div class="claim-depths">${escapeHtml(annotation.kind)} · ${escapeHtml(annotation.author)} · ${escapeHtml(annotation.created)}</div>
+    <div class="annotation-quote">${escapeHtml(annotation.target.selector.exact)}</div>
+    ${body}
+    <div class="suggestion-actions"><button class="btn-secondary annotation-delete">Delete</button></div>
+  </div>`;
+}
+
+async function setUpAnnotating(documentId, text) {
+  const surface = $("#paper-text");
+  const panel = $("#paper-annotations");
+  const filter = $("#annotation-filter");
+  const actions = $("#selection-actions");
+  let author = null;
+
+  const load = async () => {
+    const query = author ? `&author=${encodeURIComponent(author)}` : "";
+    const body = await api(
+      `/annotations/${documentId}?project=${encodeURIComponent(state.project)}${query}`
+    );
+    surface.innerHTML = renderPaperText(text, body.annotations);
+    panel.innerHTML = body.annotations.length
+      ? body.annotations.map(renderAnnotation).join("")
+      : '<p class="muted">Nothing annotated yet.</p>';
+
+    const options = body.authors
+      .map((name) => `<option value="${escapeHtml(name)}"${name === author ? " selected" : ""}>${escapeHtml(name)}</option>`)
+      .join("");
+    filter.innerHTML = body.authors.length
+      ? `<label>Author <select id="author-filter"><option value="">everyone</option>${options}</select></label>`
+      : "";
+    const select = $("#author-filter");
+    if (select) {
+      select.addEventListener(
+        "change",
+        wrapAsync(async (event) => {
+          author = event.target.value || null;
+          await load();
+        })
+      );
+    }
+
+    $$(".annotation-delete", panel).forEach((button) =>
+      button.addEventListener(
+        "click",
+        wrapAsync(async (event) => {
+          const id = event.target.closest(".annotation").dataset.id;
+          await api(
+            `/annotations/${documentId}/${id}?project=${encodeURIComponent(state.project)}`,
+            { method: "DELETE" }
+          );
+          await load();
+          setStatus(state.project, "Annotation deleted");
+        })
+      )
+    );
+  };
+
+  const record = (kind, body) =>
+    api("/annotations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project: state.project,
+        document_id: documentId,
+        exact: selected(),
+        kind,
+        body: body || "",
+      }),
+    });
+
+  const selected = () => (window.getSelection() || "").toString().trim();
+
+  const draftOptions = state.drafts
+    .map((relpath) => `<option value="${escapeHtml(relpath)}">${escapeHtml(relpath)}</option>`)
+    .join("");
+
+  actions.innerHTML = `
+    <button class="btn-secondary" id="annotate-highlight">Highlight</button>
+    <button class="btn-secondary" id="annotate-note">Note</button>
+    <button class="btn-secondary" id="annotate-copy">Copy</button>
+    <button class="btn-secondary" id="annotate-copy-citation">Copy citation</button>
+    ${state.drafts.length ? `<label>Cite in draft <select id="cite-in-draft"><option value="">choose</option>${draftOptions}</select></label>` : ""}
+  `;
+
+  surface.addEventListener("mouseup", () => {
+    actions.hidden = !selected();
+  });
+
+  $("#annotate-highlight").addEventListener(
+    "click",
+    wrapAsync(async () => {
+      if (!selected()) return;
+      await record("highlight");
+      await load();
+      setStatus(state.project, "Highlighted");
+    })
+  );
+
+  $("#annotate-note").addEventListener(
+    "click",
+    wrapAsync(async () => {
+      if (!selected()) return;
+      const body = window.prompt("Note on this passage:");
+      if (body === null) return;
+      await record("note", body);
+      await load();
+      setStatus(state.project, "Note added");
+    })
+  );
+
+  $("#annotate-copy").addEventListener("click", () => {
+    navigator.clipboard.writeText(selected());
+    setStatus(state.project, "Passage copied");
+  });
+
+  $("#annotate-copy-citation").addEventListener("click", () => {
+    navigator.clipboard.writeText(`${selected()} [@${documentId}]`);
+    setStatus(state.project, "Passage and citation copied");
+  });
+
+  const citeSelect = $("#cite-in-draft");
+  if (citeSelect) {
+    citeSelect.addEventListener(
+      "change",
+      wrapAsync(async (event) => {
+        const relpath = event.target.value;
+        if (!relpath) return;
+        await api("/drafts/cite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project: state.project,
+            draft: relpath,
+            document_id: documentId,
+            quoted: selected(),
+          }),
+        });
+        event.target.value = "";
+        setStatus(state.project, `Cited in ${relpath}`);
+      })
+    );
+  }
+
+  await load();
 }
 
 // -------------------------------------------------------------- notes
@@ -327,6 +505,63 @@ function renderClaims(container, relpath, claims) {
   );
 }
 
+// Origin is stated on every suggestion: a reader has to be able to tell
+// whether a machine or a person proposed the change.
+const SUGGESTION_ORIGIN = {
+  generated: "generated",
+  alignment: "from an alignment score",
+};
+
+function renderSuggestion(suggestion) {
+  const origin = SUGGESTION_ORIGIN[suggestion.origin] || suggestion.origin;
+  const controls =
+    suggestion.state === "pending"
+      ? `<div class="suggestion-actions">
+           <button class="btn-secondary suggestion-accept">Accept</button>
+           <button class="btn-secondary suggestion-reject">Reject</button>
+         </div>`
+      : `<div class="claim-depths">${escapeHtml(suggestion.state)}</div>`;
+
+  return `<div class="suggestion ${suggestion.state}" data-id="${escapeHtml(suggestion.suggestion_id)}">
+    <div class="claim-depths">${escapeHtml(origin)}</div>
+    <div class="suggestion-current">${escapeHtml(suggestion.anchor.exact)}</div>
+    <div class="suggestion-proposed">${escapeHtml(suggestion.proposed)}</div>
+    ${controls}
+  </div>`;
+}
+
+function renderSuggestions(container, relpath, suggestions, onApplied) {
+  if (!suggestions.length) {
+    container.innerHTML = '<p class="muted">No suggestions. Check claims first: a claim its citation does not support is what produces one.</p>';
+    return;
+  }
+  container.innerHTML = suggestions.map(renderSuggestion).join("");
+
+  const resolve = (path, message) =>
+    wrapAsync(async (event) => {
+      const card = event.target.closest(".suggestion");
+      const body = await api(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project: state.project,
+          draft: relpath,
+          suggestion_id: card.dataset.id,
+        }),
+      });
+      renderSuggestions(container, relpath, body.suggestions, onApplied);
+      await onApplied();
+      setStatus(state.project, message);
+    });
+
+  $$(".suggestion-accept", container).forEach((button) =>
+    button.addEventListener("click", resolve("/suggestions/accept", "Suggestion accepted"))
+  );
+  $$(".suggestion-reject", container).forEach((button) =>
+    button.addEventListener("click", resolve("/suggestions/reject", "Suggestion rejected"))
+  );
+}
+
 async function showDraft(relpath) {
   const draft = await api(`/drafts/${relpath}?project=${encodeURIComponent(state.project)}`);
   $("#view-draft").innerHTML = `
@@ -340,12 +575,16 @@ async function showDraft(relpath) {
       <button class="btn-primary" id="save-draft-btn">Save</button>
       <button class="btn-secondary" id="check-claims-btn">Check claims</button>
       <button class="btn-secondary" id="check-claims-deep-btn">Check in depth</button>
+      <button class="btn-secondary" id="suggest-edits-btn">Suggest edits</button>
     </p>
     <div id="draft-claims"></div>
+    <h2>Suggestions</h2>
+    <div id="draft-suggestions"></div>
   `;
   const textarea = $("#draft-content");
   const preview = $("#draft-preview");
   const claimsPanel = $("#draft-claims");
+  const suggestionsPanel = $("#draft-suggestions");
 
   const updatePreview = () => {
     preview.innerHTML = renderCitations(textarea.value) || '<span class="muted">Nothing written yet.</span>';
@@ -388,8 +627,37 @@ async function showDraft(relpath) {
   $("#check-claims-btn").addEventListener("click", check("quick"));
   $("#check-claims-deep-btn").addEventListener("click", check("deep"));
 
+  // Accepting a suggestion rewrites the draft, so the editor is reloaded
+  // from disk rather than left showing the text before the change.
+  const reloadDraft = async () => {
+    const current = await api(`/drafts/${relpath}?project=${encodeURIComponent(state.project)}`);
+    textarea.value = current.content;
+    updatePreview();
+  };
+
+  const loadSuggestions = async () => {
+    const body = await api(`/suggestions/${relpath}?project=${encodeURIComponent(state.project)}`);
+    renderSuggestions(suggestionsPanel, relpath, body.suggestions, reloadDraft);
+  };
+
+  $("#suggest-edits-btn").addEventListener(
+    "click",
+    wrapAsync(async () => {
+      await save();
+      suggestionsPanel.innerHTML = '<p class="muted">Proposing revisions…</p>';
+      const body = await api("/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: state.project, draft: relpath }),
+      });
+      await loadSuggestions();
+      setStatus(state.project, `${body.suggestions.length} suggestion(s) proposed`);
+    })
+  );
+
   const existing = await api(`/align/${relpath}?project=${encodeURIComponent(state.project)}`);
   if (existing.claims.length) renderClaims(claimsPanel, relpath, existing.claims);
+  await loadSuggestions();
 
   showView("draft");
 }

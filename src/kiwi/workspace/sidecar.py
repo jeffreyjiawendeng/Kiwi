@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from kiwi.claims import DETECTED, Claim
-from kiwi.types import Alignment, Anchor, Depth, Intent, Json
+from kiwi.types import Alignment, Anchor, Depth, Intent, Json, Suggestion, SuggestionState
 
 _SIDECAR_SUFFIX = ".kiwi.json"
 
@@ -120,11 +120,44 @@ def _alignment_from_dict(raw: Json | None, intent: Intent) -> Alignment | None:
     )
 
 
+def suggestion_to_dict(suggestion: Suggestion) -> Json:
+    return {
+        "suggestion_id": suggestion.suggestion_id,
+        "anchor": _anchor_to_dict(suggestion.anchor),
+        "proposed": suggestion.proposed,
+        "origin": suggestion.origin,
+        "state": suggestion.state.value,
+        "created": suggestion.created,
+        "resolved": suggestion.resolved,
+    }
+
+
+def suggestion_from_dict(data: Json, page_id: str) -> Suggestion:
+    anchor_data = data["anchor"]
+    return Suggestion(
+        suggestion_id=data["suggestion_id"],
+        anchor=Anchor(
+            document_id=page_id,
+            section_path="",
+            start=anchor_data["start"],
+            end=anchor_data["end"],
+            exact=anchor_data["exact"],
+            prefix=anchor_data.get("prefix", ""),
+            suffix=anchor_data.get("suffix", ""),
+        ),
+        proposed=data["proposed"],
+        origin=data["origin"],
+        state=SuggestionState(data["state"]),
+        created=data["created"],
+        resolved=data.get("resolved"),
+    )
+
+
 def read_sidecar(root: Path, relpath: str) -> Json:
     """Sidecar contents, or an empty structure when none has been written."""
     path = sidecar_path(root, relpath)
     if not path.exists():
-        return {"page_id": None, "claims": []}
+        return {"page_id": None, "claims": [], "suggestions": []}
     payload: Json = json.loads(path.read_text(encoding="utf-8"))
     return payload
 
@@ -142,6 +175,32 @@ def write_claims(root: Path, relpath: str, page_id: str, claims: list[Claim]) ->
     computed = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     payload["page_id"] = page_id
     payload["claims"] = [claim_to_dict(claim, computed) for claim in claims]
+    return _write_sidecar(path, payload)
+
+
+def read_suggestions(root: Path, relpath: str) -> list[Suggestion]:
+    """Every suggestion recorded for a draft, whatever its state."""
+    payload = read_sidecar(root, relpath)
+    page_id = payload.get("page_id") or ""
+    return [suggestion_from_dict(s, page_id) for s in payload.get("suggestions", [])]
+
+
+def write_suggestions(
+    root: Path, relpath: str, page_id: str, suggestions: list[Suggestion]
+) -> Path:
+    """Replace the recorded suggestions, preserving any other sidecar keys.
+
+    Accepted and rejected suggestions are written alongside pending ones.
+    The record of what was proposed outlives the proposal.
+    """
+    path = sidecar_path(root, relpath)
+    payload = read_sidecar(root, relpath)
+    payload["page_id"] = page_id
+    payload["suggestions"] = [suggestion_to_dict(s) for s in suggestions]
+    return _write_sidecar(path, payload)
+
+
+def _write_sidecar(path: Path, payload: Json) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path

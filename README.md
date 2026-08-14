@@ -9,6 +9,8 @@ Kiwi is an open source workspace for retrieval-augmented generation over researc
 - Citation-checked answers generated from retrieved passages, using an optional language model.
 - Reference verification against Crossref: existence, metadata consistency, and retraction status.
 - Claim alignment scoring: each cited sentence in a draft is scored against the passage it cites, so a citation that resolves but does not support the claim is surfaced.
+- Highlights and notes on any passage of a paper, stored in the workspace and never written into the source PDF, with a selected passage citable straight into a draft.
+- Suggested revisions for claims their citation does not support, applied only when accepted and recorded either way.
 - A local web interface for browsing papers, writing notes, and drafting documents with inline citations.
 - A command line interface and an HTTP API exposing the same functionality as the web interface.
 
@@ -94,6 +96,12 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `kiwi verify PROJECT [--doc ID]` | Resolves extracted references against Crossref. |
 | `kiwi ask PROJECT QUESTION [--doc ID] [--k N]` | Queries indexed papers and returns ranked passages or a generated answer. |
 | `kiwi align PROJECT DRAFT [--deep]` | Scores each cited sentence in a draft against the work it cites. `--deep` splits compound claims and scores each assertion separately. |
+| `kiwi annotate PROJECT DOC PASSAGE [--note TEXT]` | Marks a passage in a paper. Records a note when `--note` is given, otherwise a highlight. |
+| `kiwi annotations PROJECT DOC [--author NAME]` | Lists the annotations recorded on a paper. |
+| `kiwi suggest PROJECT DRAFT` | Proposes a revision for each claim its citation does not support. |
+| `kiwi suggestions PROJECT DRAFT [--state S]` | Lists the suggestions recorded for a draft. |
+| `kiwi accept PROJECT DRAFT ID` | Applies a pending suggestion to the draft. |
+| `kiwi reject PROJECT DRAFT ID` | Records a pending suggestion as rejected. |
 | `kiwi health` | Reports the configured components, the device models run on, and whether GROBID is reachable. |
 | `kiwi evaluate PROJECT [--golden PATH]` | Measures retrieval quality against a golden query set. |
 | `kiwi evaluate-alignment PROJECT [--labelled PATH]` | Measures alignment scoring against a labelled claim set. |
@@ -117,6 +125,14 @@ Run `kiwi COMMAND --help` for the full option list of any command.
 | POST | `/align` | Scores each cited sentence in a draft. `depth` is `quick` or `deep`. |
 | GET | `/align/{path}` | Claims recorded for a draft, at both depths. |
 | PUT | `/align/intent` | Overrides the detected intent for one claim. |
+| GET | `/annotations/{document_id}` | Annotations on a paper, optionally narrowed to one author. |
+| POST | `/annotations` | Records a highlight or a note over a passage. |
+| DELETE | `/annotations/{document_id}/{id}` | Deletes one annotation. |
+| POST | `/drafts/cite` | Appends a citation to a draft, quoting the passage where given. |
+| POST | `/suggest` | Proposes a revision for each claim its citation does not support. |
+| GET | `/suggestions/{path}` | Suggestions recorded for a draft, whatever their state. |
+| POST | `/suggestions/accept` | Applies a pending suggestion to the draft. |
+| POST | `/suggestions/reject` | Records a pending suggestion as rejected. |
 | GET | `/papers/{document_id}` | A previously ingested paper, with sections and references. |
 | GET | `/papers/{document_id}/verification` | The last verification result for a paper. |
 | GET, PUT | `/notes/{path}` | Reads or writes a note. |
@@ -152,6 +168,10 @@ Kiwi is a set of substitutable components behind stable interfaces. The CLI, the
 | Interface | A local web UI at `/app`, plain HTML, CSS, and JavaScript with no build step, served by the same process as the API |
 
 In the Drafts view, **Check claims** scores every cited sentence and **Check in depth** splits compound claims into their assertions. Each score is shown with the passage it was computed from, so the score can be checked against what was read. A score of 2 is reported without emphasis, a claim the cited work does not establish is stated plainly, and an unsupported claim is flagged. Where the two depths disagree both are shown, and a deep result whose claim has since been edited is marked stale rather than dropped. Citation intent can be set by hand per claim and the setting persists.
+
+On a paper's page, selecting a passage offers Highlight, Note, Copy, Copy citation, and Cite in draft. Annotations carry colour, author, and timestamp, and the panel filters by author. They are stored in `papers/<doc_id>/annotations.json` and carry the same anchor used for citation targets, so they relocate with their passage when a paper is parsed again. The source PDF is never modified.
+
+**Suggest edits** proposes a revision for each claim scored 0, against the evidence passage the score was computed from. A suggestion changes nothing while pending: it is accepted or rejected as written, and both outcomes are recorded beside the draft. Accepting applies the proposed text and reloads the editor. The span is re-resolved against the current draft when the change is applied, so a suggestion survives edits made elsewhere in the document. Suggestions require a Generator, so `KIWI_GENERATOR_MODEL` must be set.
 
 ## Retrieval evaluation
 

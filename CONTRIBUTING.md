@@ -48,6 +48,20 @@ Retrieval results do not depend on the device. Alignment uses a larger model whe
 
 A model that does not fit in the free memory of the accelerator, with headroom left for the rest of the machine, stays on the CPU rather than being loaded.
 
+## Annotations
+
+Annotations live in `papers/<doc_id>/annotations.json` and carry an `Anchor` into the paper's normalised text. The source PDF is never written to: embedding annotations rewrites the whole file on every change, and two readers annotating one paper produce a conflict with no correct resolution.
+
+`annotate()` locates the passage by searching the stored text, so a passage that appears twice resolves to its first occurrence.
+
+## Suggestions
+
+A suggestion is a proposed change that leaves the draft unchanged until it is accepted. Every proposed edit uses the same record regardless of origin, and the origin is stored on it.
+
+Two rules constrain the mechanism. A suggestion is accepted or rejected as written, with no operation that edits it first, because the applied text would otherwise be attributed to whoever proposed it. Rejected suggestions are retained rather than deleted.
+
+Spans are re-resolved through `kiwi.anchor` when a change is applied, so a suggestion survives edits made elsewhere in the draft. A span that no longer resolves, or that matches more than one place, raises `SuggestionNotApplicable`.
+
 ## Checks
 
 ```bash

@@ -131,6 +131,54 @@ class Alignment:
     model: str
 
 
+class AnnotationKind(Enum):
+    HIGHLIGHT = "highlight"
+    NOTE = "note"
+
+
+@dataclass(frozen=True)
+class Annotation:
+    """A marked passage in a paper, with optional commentary.
+
+    ``anchor`` indexes the paper's normalised text, so an annotation
+    relocates with the passage when the paper is parsed again. The source
+    PDF is never modified.
+    """
+
+    annotation_id: str
+    document_id: str
+    anchor: Anchor
+    kind: AnnotationKind
+    body: str  # commentary; empty for a highlight
+    color: str
+    author: str
+    created: str
+
+
+class SuggestionState(Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+@dataclass(frozen=True)
+class Suggestion:
+    """A proposed change to a draft.
+
+    ``anchor.exact`` is the text the change would replace, so the current
+    and proposed wording are both available without storing either twice.
+    A pending suggestion leaves the draft unchanged.
+    """
+
+    suggestion_id: str
+    anchor: Anchor
+    proposed: str
+    origin: str  # "generated", "alignment", or a person
+    state: SuggestionState
+    created: str
+    resolved: str | None = None
+
+
 @dataclass(frozen=True)
 class Filter:
     document_ids: tuple[str, ...] | None = None
