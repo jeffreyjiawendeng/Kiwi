@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import tempfile
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,8 +29,20 @@ from kiwi.core import (
     suggest_draft,
     verify_document,
 )
+from kiwi.permissions import Member, PermissionDenied
 from kiwi.protocols import IngestError
 from kiwi.registry import default_generator, default_ingestor
+from kiwi.review import (
+    ReviewItem,
+    UnknownDecision,
+    blocking_reviews,
+    process_record,
+    propose_suggestion,
+    read_decisions,
+    record_decision,
+    review_draft,
+    review_satisfied,
+)
 from kiwi.suggestions import SuggestionNotApplicable, SuggestionNotFound
 from kiwi.types import AnnotationKind, Depth, Json, Suggestion
 from kiwi.workspace import (
@@ -48,6 +61,7 @@ from kiwi.workspace import (
     read_document,
     read_draft,
     read_note,
+    read_settings,
     read_suggestions,
     read_verification,
     reference_to_dict,
@@ -58,6 +72,7 @@ from kiwi.workspace import (
     write_document,
     write_draft,
     write_note,
+    write_settings,
 )
 
 app = FastAPI(title="Kiwi", version=__version__)
@@ -130,6 +145,30 @@ class CiteInDraftRequest(BaseModel):
     draft: str
     document_id: str
     quoted: str = ""
+
+
+class ReviewDecisionRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+    claim: str
+    citation: str
+    decision: str
+    reviewer: str
+    comment: str = ""
+
+
+class ProposeRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    draft: str
+    claim: str
+    proposed: str
+    author: str
+
+
+class MemberRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    name: str
+    role: str | None = None
 
 
 class PageWriteRequest(BaseModel):
@@ -487,6 +526,120 @@ def cite_in_draft(request: CiteInDraftRequest) -> Json:
     content = str(draft["content"]).rstrip()
     updated = f"{content}\n\n{addition}" if content else addition
     return write_draft(Path(request.project), request.draft, updated)
+
+
+@app.get("/review/{relpath:path}")
+def get_review(relpath: str, project: str = "workspace.kiwi", actor: str | None = None) -> Json:
+    """Every cited sentence in a draft, as a reviewer sees it."""
+    try:
+        items = review_draft(Path(project), relpath, actor=actor)
+    except PermissionDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "items": [_review_item_to_dict(item) for item in items],
+        "blocking": blocking_reviews(Path(project), relpath),
+        "satisfied": review_satisfied(Path(project), relpath),
+        "decisions": [
+            {
+                "claim": d.claim,
+                "citation": d.citation,
+                "decision": d.decision,
+                "reviewer": d.reviewer,
+                "comment": d.comment,
+                "recorded": d.recorded,
+            }
+            for d in read_decisions(Path(project), relpath)
+        ],
+    }
+
+
+def _review_item_to_dict(item: ReviewItem) -> Json:
+    alignment = item.alignment
+    return {
+        "claim": item.claim,
+        "citation": item.citation,
+        "source_title": item.source_title,
+        "source_status": item.source_status,
+        "intent": item.intent,
+        "score": alignment.score if alignment is not None else None,
+        "depth": alignment.depth.value if alignment is not None else None,
+        "evidence": item.evidence.exact if item.evidence is not None else None,
+        "stale": item.stale,
+    }
+
+
+@app.post("/review/decision")
+def post_review_decision(request: ReviewDecisionRequest) -> Json:
+    """Record one reviewer's judgement of one claim."""
+    try:
+        decisions = record_decision(
+            Path(request.project),
+            request.draft,
+            request.claim,
+            request.citation,
+            request.decision,
+            request.reviewer,
+            request.comment,
+        )
+    except PermissionDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except UnknownDecision as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"decisions": [{"decision": d.decision, "reviewer": d.reviewer} for d in decisions]}
+
+
+@app.post("/review/propose")
+def post_proposal(request: ProposeRequest) -> Json:
+    """Attach a suggestion to a claim on a person's behalf."""
+    try:
+        suggestion = propose_suggestion(
+            Path(request.project), request.draft, request.claim, request.proposed, request.author
+        )
+    except PermissionDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"suggestion": suggestion_to_dict(suggestion)}
+
+
+@app.get("/process-record/{relpath:path}")
+def get_process_record(
+    relpath: str, project: str = "workspace.kiwi", actor: str | None = None
+) -> Json:
+    """What was proposed, what was declined, and what was decided."""
+    try:
+        return process_record(Path(project), relpath, actor=actor)
+    except PermissionDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@app.get("/projects/settings")
+def get_project_settings(project: str = "workspace.kiwi") -> Json:
+    """Roles, members, ownership, and which reviews are required."""
+    settings = read_settings(Path(project))
+    return {
+        "owner": settings.owner,
+        "successors": list(settings.successors),
+        "required_reviews": list(settings.required_reviews),
+        "roles": [
+            {"name": r.name, "rank": r.rank, "permissions": sorted(p.value for p in r.permissions)}
+            for r in sorted(settings.roles, key=lambda r: r.rank)
+        ],
+        "members": [{"name": m.name, "role": m.role} for m in settings.members],
+    }
+
+
+@app.put("/projects/members")
+def put_member(request: MemberRequest) -> Json:
+    """Add a member or change the role assigned to one."""
+    root = Path(request.project)
+    settings = read_settings(root)
+    members = [m for m in settings.members if m.name != request.name]
+    members.append(Member(name=request.name, role=request.role))
+    write_settings(root, replace(settings, members=tuple(members)))
+    return {"members": [{"name": m.name, "role": m.role} for m in members]}
 
 
 @app.get("/papers/{document_id}/verification")

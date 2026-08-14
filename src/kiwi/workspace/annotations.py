@@ -17,6 +17,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from kiwi.permissions import Permission
 from kiwi.types import Anchor, Annotation, AnnotationKind, Json
 
 DEFAULT_COLOR = "yellow"
@@ -100,13 +101,21 @@ def annotate(
     color: str = DEFAULT_COLOR,
     author: str = DEFAULT_AUTHOR,
     section_path: str = "",
+    actor: str | None = None,
 ) -> Annotation:
     """Record an annotation over the first occurrence of ``exact``.
 
     The offsets and surrounding context are read from the paper's stored
     text, so the annotation carries what it needs to relocate later.
     Raises ``ValueError`` when the passage is not in the paper.
+
+    ``actor`` is who performs the operation and is what the permission is
+    checked against. ``author`` is the name recorded on the annotation and
+    is what the panel filters by.
     """
+    from kiwi.workspace.settings import require
+
+    require(root, Permission.ANNOTATE_PAPERS, actor)
     text = (root / "papers" / document_id / "text.txt").read_text(encoding="utf-8")
     start = text.find(exact)
     if start == -1:

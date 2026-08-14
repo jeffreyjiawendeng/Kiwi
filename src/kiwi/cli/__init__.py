@@ -438,6 +438,97 @@ def list_annotations(
             typer.echo(f"  note: {annotation.body}")
 
 
+@app.command()
+def review(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    actor: str = typer.Option("", "--actor", help="Who is opening the review."),
+) -> None:
+    """Show each cited sentence in a draft as a reviewer sees it."""
+    from kiwi.review import blocking_reviews, review_draft
+
+    items = review_draft(project, draft, actor=actor or None)
+    if not items:
+        typer.secho("No cited sentences. Run `kiwi align` first.", fg="yellow")
+        raise typer.Exit(code=1)
+
+    colors = {0: "red", 1: "yellow", 2: "green"}
+    for item in items:
+        score = item.alignment.score if item.alignment is not None else None
+        label = "unscored" if score is None else str(score)
+        typer.secho(f"[{label}] {item.claim[:90]}", fg=colors.get(score or -1, "white"))
+        typer.echo(f"    cites {item.source_title} as {item.intent}")
+        typer.echo(f"    source status: {item.source_status}")
+        if item.evidence is not None:
+            typer.echo(f"    evidence: {item.evidence.exact[:110]}")
+        if item.stale:
+            typer.secho("    deep result is stale", fg="yellow")
+
+    blocking = blocking_reviews(project, draft)
+    if blocking:
+        typer.secho(f"Awaiting review from: {', '.join(blocking)}", fg="yellow")
+
+
+@app.command()
+def decide(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    claim: str = typer.Argument(..., help="Exact claim text."),
+    citation: str = typer.Argument(..., help="Document the claim cites."),
+    decision: str = typer.Argument(..., help="approved, changes_requested, or resolved."),
+    reviewer: str = typer.Option(..., "--reviewer", help="Who is recording the decision."),
+    comment: str = typer.Option("", "--comment", help="Reasoning to record."),
+) -> None:
+    """Record a review decision on one claim."""
+    from kiwi.review import UnknownDecision, record_decision
+
+    try:
+        decisions = record_decision(project, draft, claim, citation, decision, reviewer, comment)
+    except UnknownDecision as exc:
+        typer.secho(str(exc), fg="red")
+        raise typer.Exit(code=1) from exc
+    typer.secho(f"{decision} recorded by {reviewer} ({len(decisions)} total)", fg="green")
+
+
+@app.command()
+def members(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+) -> None:
+    """List the project's owner, members, and required reviews."""
+    from kiwi.workspace import read_settings
+
+    settings = read_settings(project)
+    typer.secho(f"owner: {settings.owner}", bold=True)
+    for member in settings.members:
+        typer.echo(f"  {member.name}: {member.role or 'no role, no access'}")
+    if settings.successors:
+        typer.echo(f"successors: {', '.join(settings.successors)}")
+    if settings.required_reviews:
+        typer.echo(f"required reviews: {', '.join(settings.required_reviews)}")
+
+
+@app.command("process-record")
+def show_process_record(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    draft: str = typer.Argument(..., help="Draft path relative to drafts/."),
+    actor: str = typer.Option("", "--actor", help="Who is reading the record."),
+) -> None:
+    """Show what was proposed, what was declined, and what was decided."""
+    from kiwi.review import process_record
+
+    record = process_record(project, draft, actor=actor or None)
+    for decision in record["decisions"]:
+        typer.secho(f"{decision['decision']} by {decision['reviewer']}", bold=True)
+        typer.echo(f"  {decision['claim'][:100]}")
+        if decision["comment"]:
+            typer.echo(f"  {decision['comment']}")
+    for state in ("pending", "accepted", "rejected"):
+        for entry in record[state]:
+            typer.secho(f"{state} suggestion from {entry['origin']}", bold=True)
+            typer.secho(f"  - {entry['current'][:100]}", fg="red")
+            typer.secho(f"  + {entry['proposed'][:100]}", fg="green")
+
+
 @app.command("evaluate-alignment")
 def evaluate_alignment(
     project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),

@@ -480,3 +480,157 @@ def test_cite_in_draft_appends_a_citation_marker(tmp_path: Path) -> None:
     assert "Opening sentence." in content
     assert f"[@{doc_id}]." in content
     assert "Section-aware chunking" in content
+
+
+def _review_project(tmp_path: Path) -> tuple[Path, str]:
+    from kiwi.claims import Claim
+    from kiwi.permissions import Member
+    from kiwi.types import Alignment, Anchor, Depth, Intent
+    from kiwi.workspace import ProjectSettings, write_claims, write_draft, write_settings
+
+    project, doc_id = _seeded_project(tmp_path)
+    claim_text = "Section-aware chunking outperformed fixed-size splitting"
+    write_draft(project, "intro.md", f"{claim_text} [@{doc_id}].")
+    write_claims(
+        project,
+        "intro.md",
+        "pg_1",
+        [
+            Claim(
+                anchor=Anchor(
+                    document_id="pg_1",
+                    section_path="",
+                    start=0,
+                    end=len(claim_text),
+                    exact=claim_text,
+                    prefix="",
+                    suffix="",
+                ),
+                citation=doc_id,
+                intent=Intent.EVIDENCE,
+                alignment=Alignment(
+                    score=2,
+                    intent=Intent.EVIDENCE,
+                    depth=Depth.QUICK,
+                    evidence=Anchor(
+                        document_id=doc_id,
+                        section_path="Results",
+                        start=0,
+                        end=20,
+                        exact="a supporting passage",
+                        prefix="",
+                        suffix="",
+                    ),
+                    model="test",
+                ),
+            )
+        ],
+    )
+    write_settings(
+        project,
+        ProjectSettings(
+            owner="wei",
+            members=(Member(name="lee", role="Reviewer"), Member(name="sam")),
+            required_reviews=("Reviewer",),
+        ),
+    )
+    return project, doc_id
+
+
+def test_review_endpoint_reports_items_and_blocking_roles(tmp_path: Path) -> None:
+    project, doc_id = _review_project(tmp_path)
+    response = client.get(f"/review/intro.md?project={project}&actor=lee")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["citation"] == doc_id
+    assert body["items"][0]["score"] == 2
+    assert body["items"][0]["evidence"] == "a supporting passage"
+    assert body["items"][0]["source_status"] == "unverified"
+    assert body["blocking"] == ["Reviewer"]
+    assert body["satisfied"] is False
+
+
+def test_review_endpoint_refuses_someone_with_no_role(tmp_path: Path) -> None:
+    project, _ = _review_project(tmp_path)
+    assert client.get(f"/review/intro.md?project={project}&actor=sam").status_code == 403
+
+
+def test_recording_a_decision_clears_the_block(tmp_path: Path) -> None:
+    project, doc_id = _review_project(tmp_path)
+    claim_text = "Section-aware chunking outperformed fixed-size splitting"
+
+    recorded = client.post(
+        "/review/decision",
+        json={
+            "project": str(project),
+            "draft": "intro.md",
+            "claim": claim_text,
+            "citation": doc_id,
+            "decision": "approved",
+            "reviewer": "lee",
+        },
+    )
+    assert recorded.status_code == 200
+
+    body = client.get(f"/review/intro.md?project={project}&actor=lee").json()
+    assert body["blocking"] == []
+    assert body["satisfied"] is True
+
+
+def test_an_unknown_decision_returns_400(tmp_path: Path) -> None:
+    project, doc_id = _review_project(tmp_path)
+    response = client.post(
+        "/review/decision",
+        json={
+            "project": str(project),
+            "draft": "intro.md",
+            "claim": "x",
+            "citation": doc_id,
+            "decision": "looks-fine",
+            "reviewer": "lee",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_a_reviewer_proposes_wording_through_the_api(tmp_path: Path) -> None:
+    project, _ = _review_project(tmp_path)
+    claim_text = "Section-aware chunking outperformed fixed-size splitting"
+    response = client.post(
+        "/review/propose",
+        json={
+            "project": str(project),
+            "draft": "intro.md",
+            "claim": claim_text,
+            "proposed": "Section-aware chunking outperformed fixed-size splitting on MRR",
+            "author": "lee",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["suggestion"]["origin"] == "lee"
+
+
+def test_the_process_record_is_refused_without_the_permission(tmp_path: Path) -> None:
+    project, _ = _review_project(tmp_path)
+    assert client.get(f"/process-record/intro.md?project={project}&actor=sam").status_code == 403
+
+
+def test_project_settings_are_reported(tmp_path: Path) -> None:
+    project, _ = _review_project(tmp_path)
+    body = client.get(f"/projects/settings?project={project}").json()
+
+    assert body["owner"] == "wei"
+    assert body["required_reviews"] == ["Reviewer"]
+    assert {m["name"]: m["role"] for m in body["members"]} == {"lee": "Reviewer", "sam": None}
+
+
+def test_a_member_role_can_be_assigned(tmp_path: Path) -> None:
+    project, _ = _review_project(tmp_path)
+    response = client.put(
+        "/projects/members",
+        json={"project": str(project), "name": "sam", "role": "Contributor"},
+    )
+    assert response.status_code == 200
+    assert {m["name"]: m["role"] for m in response.json()["members"]}["sam"] == "Contributor"

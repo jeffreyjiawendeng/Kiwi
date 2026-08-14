@@ -11,6 +11,7 @@ Kiwi is an open source workspace for retrieval-augmented generation over researc
 - Claim alignment scoring: each cited sentence in a draft is scored against the passage it cites, so a citation that resolves but does not support the claim is surfaced.
 - Highlights and notes on any passage of a paper, stored in the workspace and never written into the source PDF, with a selected passage citable straight into a draft.
 - Suggested revisions for claims their citation does not support, applied only when accepted and recorded either way.
+- Roles, nested permissions, and a review page where a reviewer judges each claim against the passage it cites, with every decision recorded.
 - A local web interface for browsing papers, writing notes, and drafting documents with inline citations.
 - A command line interface and an HTTP API exposing the same functionality as the web interface.
 
@@ -85,6 +86,7 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `KIWI_INTENT_MODEL` | Citation intent classifier labelled `background`, `method`, and `result`. Unset, every claim is treated as evidence and scored. |
 | `KIWI_NO_ALIGN` | Disables claim alignment. |
 | `KIWI_DEVICE` | Device models run on: `auto` (default), `cuda`, `mps`, or `cpu`. A device that is named but unavailable falls back to the CPU. |
+| `KIWI_AUTHOR` | Identity that operations are recorded against and permissions are checked for. Defaults to `local`. |
 | `KIWI_DATA_DIR` | Overrides where the known-projects registry is stored. |
 
 ## Command line interface
@@ -96,6 +98,10 @@ Kiwi is configured through environment variables. None are required; each has a 
 | `kiwi verify PROJECT [--doc ID]` | Resolves extracted references against Crossref. |
 | `kiwi ask PROJECT QUESTION [--doc ID] [--k N]` | Queries indexed papers and returns ranked passages or a generated answer. |
 | `kiwi align PROJECT DRAFT [--deep]` | Scores each cited sentence in a draft against the work it cites. `--deep` splits compound claims and scores each assertion separately. |
+| `kiwi review PROJECT DRAFT [--actor NAME]` | Shows each cited sentence as a reviewer sees it, with the roles still to approve. |
+| `kiwi decide PROJECT DRAFT CLAIM CITATION DECISION --reviewer NAME` | Records a review decision on one claim. |
+| `kiwi members PROJECT` | Shows the owner, members, successors, and required reviews. |
+| `kiwi process-record PROJECT DRAFT` | Shows what was proposed, declined, and decided. |
 | `kiwi annotate PROJECT DOC PASSAGE [--note TEXT]` | Marks a passage in a paper. Records a note when `--note` is given, otherwise a highlight. |
 | `kiwi annotations PROJECT DOC [--author NAME]` | Lists the annotations recorded on a paper. |
 | `kiwi suggest PROJECT DRAFT` | Proposes a revision for each claim its citation does not support. |
@@ -125,6 +131,12 @@ Run `kiwi COMMAND --help` for the full option list of any command.
 | POST | `/align` | Scores each cited sentence in a draft. `depth` is `quick` or `deep`. |
 | GET | `/align/{path}` | Claims recorded for a draft, at both depths. |
 | PUT | `/align/intent` | Overrides the detected intent for one claim. |
+| GET | `/review/{path}` | Each cited sentence as a reviewer sees it, with blocking roles. |
+| POST | `/review/decision` | Records a review decision on one claim. |
+| POST | `/review/propose` | Attaches a suggestion to a claim on a person's behalf. |
+| GET | `/process-record/{path}` | What was proposed, declined, and decided. |
+| GET | `/projects/settings` | Roles, members, ownership, and required reviews. |
+| PUT | `/projects/members` | Adds a member or changes the role assigned to one. |
 | GET | `/annotations/{document_id}` | Annotations on a paper, optionally narrowed to one author. |
 | POST | `/annotations` | Records a highlight or a note over a passage. |
 | DELETE | `/annotations/{document_id}/{id}` | Deletes one annotation. |
@@ -172,6 +184,25 @@ In the Drafts view, **Check claims** scores every cited sentence and **Check in 
 On a paper's page, selecting a passage offers Highlight, Note, Copy, Copy citation, and Cite in draft. Annotations carry colour, author, and timestamp, and the panel filters by author. They are stored in `papers/<doc_id>/annotations.json` and carry the same anchor used for citation targets, so they relocate with their passage when a paper is parsed again. The source PDF is never modified.
 
 **Suggest edits** proposes a revision for each claim scored 0, against the evidence passage the score was computed from. A suggestion changes nothing while pending: it is accepted or rejected as written, and both outcomes are recorded beside the draft. Accepting applies the proposed text and reloads the editor. The span is re-resolved against the current draft when the change is applied, so a suggestion survives edits made elsewhere in the document. Suggestions require a Generator, so `KIWI_GENERATOR_MODEL` must be set.
+
+## Roles and review
+
+A project's roles, members, ownership, and succession live in `project.json`. A project without that file has one owner holding every permission, so a workspace used by one person behaves as it did before roles existed.
+
+Roles are strictly nested: each holds every permission of the role beneath it, so access reads off rank without consulting a matrix. The default ladder runs Viewer, Commenter, Reviewer, Contributor, Maintainer, Owner. A role may be inserted at any rank, validated as a superset of the role below and a subset of the one above.
+
+| Rule | Behavior |
+|---|---|
+| A member with no assigned role | No access. Not Viewer. |
+| Reviewer's position | Below Contributor, so a reviewer records judgements without gaining the ability to edit. |
+| An unshared note | No role, including Owner, reads a note its author has not shared. |
+| The process record | Reading a draft and reading everything proposed and declined on it are separate permissions. |
+| Ownership | Transferable, with designated successors who may claim a project whose owner is unreachable. A project always has exactly one owner. |
+| Review | Advisory unless the owner names roles in `required_reviews`, which then block until each approves. |
+
+The review page shows, per claim: the cited source and its status, the detected intent, the score with the evidence passage it was computed from, and staleness. Scores are inputs to a judgement rather than a verdict.
+
+Identity is recorded rather than authenticated. A workspace is a folder, so these checks constrain what the application does, not what the filesystem allows.
 
 ## Retrieval evaluation
 

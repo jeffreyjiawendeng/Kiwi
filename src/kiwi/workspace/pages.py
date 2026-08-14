@@ -77,27 +77,44 @@ def read_note(root: Path, relpath: str) -> Json:
         "page_id": frontmatter.get("kiwi_id"),
         "created": frontmatter.get("created"),
         "visibility": frontmatter.get("visibility", "private"),
+        "author": frontmatter.get("author", ""),
         "content": body,
     }
 
 
-def write_note(root: Path, relpath: str, content: str, visibility: str = "private") -> Json:
+def write_note(
+    root: Path,
+    relpath: str,
+    content: str,
+    visibility: str = "private",
+    author: str | None = None,
+) -> Json:
     path = resolve_within(root / "notes", relpath)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     page_id, created = _new_page_id(), _now()
+    recorded_author = author or ""
     if path.exists():
         existing, _ = _split_frontmatter(path.read_text(encoding="utf-8"))
         page_id = existing.get("kiwi_id") or page_id
         created = existing.get("created") or created
+        # Authorship is set once. A later writer does not become the author
+        # of a note whose visibility the first author controls.
+        recorded_author = existing.get("author") or recorded_author
 
-    frontmatter = {"kiwi_id": page_id, "created": created, "visibility": visibility}
+    frontmatter = {
+        "kiwi_id": page_id,
+        "created": created,
+        "visibility": visibility,
+        "author": recorded_author,
+    }
     path.write_text(_join_frontmatter(frontmatter, content), encoding="utf-8")
     return {
         "path": relpath,
         "page_id": page_id,
         "created": created,
         "visibility": visibility,
+        "author": recorded_author,
         "content": content,
     }
 

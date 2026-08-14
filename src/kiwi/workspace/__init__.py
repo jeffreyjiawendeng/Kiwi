@@ -29,6 +29,16 @@ from kiwi.workspace.pages import (
     write_note,
 )
 from kiwi.workspace.projects import list_known_projects, register_project
+from kiwi.workspace.settings import (
+    ProjectSettings,
+    current_author,
+    may_read_note,
+    permits,
+    read_settings,
+    require,
+    settings_path,
+    write_settings,
+)
 from kiwi.workspace.sidecar import (
     claim_to_dict,
     read_claims,
@@ -41,6 +51,14 @@ from kiwi.workspace.sidecar import (
 )
 
 __all__ = [
+    "require",
+    "write_settings",
+    "settings_path",
+    "read_settings",
+    "permits",
+    "may_read_note",
+    "current_author",
+    "ProjectSettings",
     "FORMAT_VERSION",
     "PathOutsideProject",
     "annotate",

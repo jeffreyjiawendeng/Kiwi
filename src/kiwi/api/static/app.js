@@ -4,6 +4,7 @@
 
 const state = {
   project: null, // absolute path string, or null
+  actor: "", // who review actions are recorded against
   papers: [],
   notes: [],
   drafts: [],
@@ -359,6 +360,118 @@ async function setUpAnnotating(documentId, text) {
   await load();
 }
 
+// ------------------------------------------------------------- review
+
+const DECISIONS = ["approved", "changes_requested", "resolved"];
+
+// A score is an input to a judgement rather than a verdict, so the
+// evidence passage and the state of the cited work sit beside it.
+function renderReviewItem(item) {
+  const score = item.score === null ? "not scored" : `score ${item.score}`;
+  const stale = item.stale ? '<span class="badge issues">stale</span>' : "";
+  const evidence = item.evidence
+    ? `<div class="claim-evidence">${escapeHtml(item.evidence)}</div>`
+    : '<div class="claim-evidence muted">No passage was read for this claim.</div>';
+  const options = DECISIONS.map((d) => `<option value="${d}">${d.replace("_", " ")}</option>`).join("");
+
+  return `<div class="claim ${item.score === null ? "score-none" : `score-${item.score}`}"
+      data-claim="${escapeHtml(item.claim)}" data-citation="${escapeHtml(item.citation)}">
+    <div class="claim-text">${escapeHtml(item.claim)}</div>
+    <div class="claim-meta">
+      <strong>${escapeHtml(item.source_title)}</strong>
+      <span>${escapeHtml(item.intent)}</span>
+      <span>${escapeHtml(score)}</span>
+      <span class="status-pill ${escapeHtml(item.source_status)}">${escapeHtml(item.source_status)}</span>
+      ${stale}
+    </div>
+    ${evidence}
+    <div class="suggestion-actions">
+      <select class="review-decision">${options}</select>
+      <input class="review-comment" placeholder="Reasoning to record" />
+      <button class="btn-secondary review-record">Record</button>
+      <button class="btn-secondary review-propose">Propose wording</button>
+    </div>
+  </div>`;
+}
+
+async function showReview(relpath) {
+  const who = state.actor || "";
+  const query = `project=${encodeURIComponent(state.project)}${who ? `&actor=${encodeURIComponent(who)}` : ""}`;
+  const body = await api(`/review/${relpath}?${query}`);
+
+  const blocking = body.blocking.length
+    ? `<p class="badge issues">Awaiting review from: ${escapeHtml(body.blocking.join(", "))}</p>`
+    : '<p class="muted">No review is required before this draft moves on.</p>';
+  const history = body.decisions
+    .map((d) => `<li>${escapeHtml(d.decision)} by ${escapeHtml(d.reviewer)} ${escapeHtml(d.comment)}</li>`)
+    .join("");
+
+  $("#view-review").innerHTML = `
+    <h1>Review: ${escapeHtml(relpath)}</h1>
+    <p class="muted">The decision stays with the reader. Open each citation and check the passage.</p>
+    ${blocking}
+    <label>Reviewing as <input id="review-actor" value="${escapeHtml(who)}" placeholder="your name" /></label>
+    <div id="review-items">${body.items.map(renderReviewItem).join("")}</div>
+    <h2>Decisions recorded</h2>
+    <ul>${history || '<li class="muted">None yet.</li>'}</ul>
+    <p><button class="btn-secondary" id="back-to-draft">Back to draft</button></p>
+  `;
+
+  $("#review-actor").addEventListener("change", (event) => {
+    state.actor = event.target.value.trim();
+  });
+  $("#back-to-draft").addEventListener("click", wrapAsync(() => showDraft(relpath)));
+
+  $$(".review-record", $("#view-review")).forEach((button) =>
+    button.addEventListener(
+      "click",
+      wrapAsync(async (event) => {
+        const card = event.target.closest(".claim");
+        await api("/review/decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project: state.project,
+            draft: relpath,
+            claim: card.dataset.claim,
+            citation: card.dataset.citation,
+            decision: $(".review-decision", card).value,
+            reviewer: state.actor || "local",
+            comment: $(".review-comment", card).value,
+          }),
+        });
+        setStatus(state.project, "Decision recorded");
+        await showReview(relpath);
+      })
+    )
+  );
+
+  $$(".review-propose", $("#view-review")).forEach((button) =>
+    button.addEventListener(
+      "click",
+      wrapAsync(async (event) => {
+        const card = event.target.closest(".claim");
+        const proposed = window.prompt("Proposed wording:", card.dataset.claim);
+        if (proposed === null) return;
+        await api("/review/propose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project: state.project,
+            draft: relpath,
+            claim: card.dataset.claim,
+            proposed,
+            author: state.actor || "local",
+          }),
+        });
+        setStatus(state.project, "Wording proposed");
+      })
+    )
+  );
+
+  showView("review");
+}
+
 // -------------------------------------------------------------- notes
 
 async function showNote(relpath) {
@@ -576,6 +689,7 @@ async function showDraft(relpath) {
       <button class="btn-secondary" id="check-claims-btn">Check claims</button>
       <button class="btn-secondary" id="check-claims-deep-btn">Check in depth</button>
       <button class="btn-secondary" id="suggest-edits-btn">Suggest edits</button>
+      <button class="btn-secondary" id="review-btn">Review</button>
     </p>
     <div id="draft-claims"></div>
     <h2>Suggestions</h2>
@@ -652,6 +766,14 @@ async function showDraft(relpath) {
       });
       await loadSuggestions();
       setStatus(state.project, `${body.suggestions.length} suggestion(s) proposed`);
+    })
+  );
+
+  $("#review-btn").addEventListener(
+    "click",
+    wrapAsync(async () => {
+      await save();
+      await showReview(relpath);
     })
   );
 

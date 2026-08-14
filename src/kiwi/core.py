@@ -17,6 +17,7 @@ from kiwi.claims import (
     extract_claims,
     supporting_score,
 )
+from kiwi.permissions import Permission
 from kiwi.protocols import Aligner, Generator, Resolver
 from kiwi.registry import (
     default_aligner,
@@ -52,6 +53,7 @@ from kiwi.workspace import (
     read_claims,
     read_draft,
     read_suggestions,
+    require,
     write_chunk_count,
     write_claims,
     write_draft,
@@ -177,6 +179,7 @@ def align_draft(
     relpath: str,
     aligner: Aligner | None = None,
     depth: Depth = Depth.QUICK,
+    actor: str | None = None,
 ) -> list[Claim]:
     """Score every cited sentence in a draft against the work it cites.
 
@@ -186,6 +189,11 @@ def align_draft(
     without a score. Returns an empty list, with nothing written, if no
     Aligner is configured.
     """
+    require(
+        project,
+        Permission.RUN_DEEP_ALIGNMENT if depth is Depth.DEEP else Permission.RUN_QUICK_ALIGNMENT,
+        actor,
+    )
     aligner = aligner if aligner is not None else default_aligner()
     if aligner is None:
         return []
@@ -238,6 +246,7 @@ def set_claim_intent(
     claim_text: str,
     intent: str,
     citation: str | None = None,
+    actor: str | None = None,
 ) -> list[Claim]:
     """Record a hand-set intent for the claim whose text is ``claim_text``.
 
@@ -245,6 +254,8 @@ def set_claim_intent(
     than one work. The override persists and is reapplied on the next
     alignment run.
     """
+
+    require(project, Permission.OVERRIDE_CITATION_INTENT, actor)
 
     def selected(claim: Claim) -> bool:
         if claim.anchor.exact != claim_text:
@@ -293,7 +304,7 @@ def _revision_instruction(alignment: Alignment) -> str:
 
 
 def suggest_draft(
-    project: Path, relpath: str, generator: Generator | None = None
+    project: Path, relpath: str, generator: Generator | None = None, actor: str | None = None
 ) -> list[Suggestion]:
     """Propose a revision for each claim its citation does not support.
 
@@ -306,6 +317,7 @@ def suggest_draft(
     Returns an empty list, with nothing written, if no Generator is
     configured or no claim scores 0.
     """
+    require(project, Permission.PROPOSE_SUGGESTIONS, actor)
     generator = generator if generator is not None else default_generator()
     if generator is None:
         return []
@@ -330,18 +342,26 @@ def suggest_draft(
     return created
 
 
-def accept_suggestion(project: Path, relpath: str, suggestion_id: str) -> list[Suggestion]:
+def accept_suggestion(
+    project: Path, relpath: str, suggestion_id: str, actor: str | None = None
+) -> list[Suggestion]:
     """Apply a pending suggestion to the draft and record the acceptance."""
-    return _resolve_suggestion(project, relpath, suggestion_id, SuggestionState.ACCEPTED)
+    return _resolve_suggestion(project, relpath, suggestion_id, SuggestionState.ACCEPTED, actor)
 
 
-def reject_suggestion(project: Path, relpath: str, suggestion_id: str) -> list[Suggestion]:
+def reject_suggestion(
+    project: Path, relpath: str, suggestion_id: str, actor: str | None = None
+) -> list[Suggestion]:
     """Record a pending suggestion as rejected. The draft is unchanged."""
-    return _resolve_suggestion(project, relpath, suggestion_id, SuggestionState.REJECTED)
+    return _resolve_suggestion(project, relpath, suggestion_id, SuggestionState.REJECTED, actor)
 
 
 def _resolve_suggestion(
-    project: Path, relpath: str, suggestion_id: str, state: SuggestionState
+    project: Path,
+    relpath: str,
+    suggestion_id: str,
+    state: SuggestionState,
+    actor: str | None = None,
 ) -> list[Suggestion]:
     """Record one suggestion as accepted or rejected.
 
@@ -349,6 +369,7 @@ def _resolve_suggestion(
     cannot be applied leaves the suggestion pending rather than marking it
     accepted against text it never reached.
     """
+    require(project, Permission.RESOLVE_SUGGESTIONS, actor)
     suggestions = read_suggestions(project, relpath)
     target = next((s for s in suggestions if s.suggestion_id == suggestion_id), None)
     if target is None:

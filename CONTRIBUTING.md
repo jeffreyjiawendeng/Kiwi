@@ -54,6 +54,14 @@ Annotations live in `papers/<doc_id>/annotations.json` and carry an `Anchor` int
 
 `annotate()` locates the passage by searching the stored text, so a passage that appears twice resolves to its first occurrence.
 
+## Roles and permissions
+
+`kiwi.permissions` defines the permission set and the default role ladder; `project.json` records a project's roles, members, ownership, and required reviews. `require(project, permission, actor)` raises `PermissionDenied` when the project's records do not grant an operation.
+
+Two invariants are tested rather than assumed. Roles are strictly nested, so `validate_ladder` rejects any role that fails to hold everything the role beneath it holds. A project with no `project.json` reads as single-owner, so permission checks are invisible to a workspace used by one person.
+
+An operation takes an `actor`, which is who performs it and what the permission is checked against. That is separate from an `author` or `reviewer` field, which is the name recorded on what the operation produces.
+
 ## Suggestions
 
 A suggestion is a proposed change that leaves the draft unchanged until it is accepted. Every proposed edit uses the same record regardless of origin, and the origin is stored on it.

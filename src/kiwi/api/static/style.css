@@ -561,3 +561,27 @@ th {
   margin: 4px 0;
   font-weight: 600;
 }
+
+.status-pill.retracted,
+.status-pill.mismatch {
+  background: #fbe4e1;
+  color: var(--danger);
+}
+
+.status-pill.unverified {
+  background: var(--bg-alt);
+  color: var(--text-muted);
+}
+
+.review-comment {
+  flex: 1;
+  min-width: 160px;
+  margin-top: 0;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+#review-actor input {
+  display: inline-block;
+  width: auto;
+}
