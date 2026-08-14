@@ -31,11 +31,19 @@ from kiwi.registry import (
     default_embedder,
     default_generator,
     default_ingestor,
+    default_reranker,
 )
+from kiwi.setup import Capability, grobid_command, load_env
 from kiwi.types import RefStatus
 from kiwi.workspace import init_project, read_document, write_document
 
 app = typer.Typer(add_completion=False, help="Kiwi: an open research workspace.")
+
+
+@app.callback()
+def _main() -> None:
+    """Settings written by `kiwi setup` are read before any command runs."""
+    load_env()
 
 
 @app.command()
@@ -47,16 +55,39 @@ def ingest(
         Path("workspace.kiwi"), "--project", "-p", help="Project folder to write into."
     ),
     grobid_url: str = typer.Option(DEFAULT_GROBID_URL, "--grobid-url", envvar="KIWI_GROBID_URL"),
+    text_only: bool = typer.Option(
+        False,
+        "--text-only",
+        help="Read the PDF's text layer instead of GROBID. No sections, no references.",
+    ),
 ) -> None:
     """Parse a PDF, or every PDF in a directory, into structured sections and references."""
-    ingestor = default_ingestor()
-    ingestor.base_url = grobid_url.rstrip("/")
+    from kiwi.components.ingest.pdf import PdfIngestor
 
-    health = ingestor.health()
-    if not health.ok:
-        typer.secho(f"GROBID is not reachable at {grobid_url}: {health.detail}", fg="red")
-        typer.echo("Start it with: docker run --rm -p 8070:8070 lfoppiano/grobid:0.8.1")
-        raise typer.Exit(code=1)
+    ingestor: object
+    if text_only:
+        ingestor = PdfIngestor()
+    else:
+        ingestor = default_ingestor()
+        ingestor.base_url = grobid_url.rstrip("/")
+
+        health = ingestor.health()
+        if not health.ok:
+            typer.secho(f"GROBID is not reachable at {grobid_url}: {health.detail}", fg="red")
+            typer.echo(f"Start it with: {grobid_command()}")
+            typer.echo("Or run `kiwi setup` to see everything this machine is missing.")
+            typer.echo(
+                "Or read the text layer alone with --text-only, which needs no service "
+                "and finds no sections or references."
+            )
+            raise typer.Exit(code=1)
+
+    if text_only:
+        typer.secho(
+            "Reading the text layer alone: no section tree, no references. "
+            "Re-ingest with GROBID later to get both; the papers keep their identity.",
+            fg="yellow",
+        )
 
     init_project(project, name=project.stem)
 
@@ -131,7 +162,13 @@ def verify(
         None, "--contact-email", envvar="KIWI_CONTACT_EMAIL", help="Crossref polite-pool contact."
     ),
 ) -> None:
-    """Resolve extracted references against Crossref: existence, metadata, retraction status."""
+    """Resolve extracted references against Crossref: existence, metadata, retraction status.
+
+    Each paper's own record is resolved as well, which is what tells a
+    reader whether the work they are citing has been retracted.
+    """
+    from kiwi.review import verify_cited_work
+
     papers_dir = project / "papers"
     doc_ids = [doc] if doc else sorted(p.name for p in papers_dir.iterdir() if p.is_dir())
     if not doc_ids:
@@ -142,6 +179,12 @@ def verify(
 
     for doc_id in doc_ids:
         document = read_document(project, doc_id)
+
+        source_status = verify_cited_work(project, doc_id, resolver=resolver)
+        if source_status is not None:
+            colour = "red" if source_status in ("retracted", "mismatch") else "green"
+            typer.secho(f"{doc_id}: this paper resolves as {source_status}", fg=colour)
+
         if not document.references:
             typer.echo(f"{doc_id}: no references extracted")
             continue
@@ -201,7 +244,7 @@ def align(
     ),
 ) -> None:
     """Score each cited sentence in a draft against the work it cites."""
-    from kiwi.types import Depth
+    from kiwi.types import Depth, Intent
 
     claims = align_draft(project, draft, depth=Depth.DEEP if deep else Depth.QUICK)
     if not claims:
@@ -227,6 +270,145 @@ def align(
         if shown.evidence is not None:
             typer.echo(f"    evidence: {shown.evidence.exact[:120]}")
 
+    if any(claim.intent is Intent.ATTRIBUTION for claim in claims):
+        typer.secho(
+            "\nAttribution can credit the wrong work. Read the passage before "
+            "relying on a score on that scale.",
+            fg="yellow",
+        )
+
+
+@app.command()
+def setup(
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", help="Report what is missing and exit without asking."
+    ),
+    env_path: Path = typer.Option(Path(".env"), "--env", help="Where chosen settings are written."),
+    fetch: bool = typer.Option(
+        True, "--fetch/--no-fetch", help="Download the models for the chosen capabilities."
+    ),
+) -> None:
+    """Report what this machine can do, and set up what it cannot yet.
+
+    Nothing is installed without being shown and agreed to first.
+    """
+    from kiwi.device import describe_device, resolve_device
+    from kiwi.setup import (
+        CAPABILITIES,
+        configured,
+        docker_version,
+        download_size,
+        env_file,
+        grobid_command,
+        install_command,
+        merge_env,
+    )
+
+    typer.secho(f"device    : {describe_device(resolve_device())}", bold=True)
+    typer.echo("")
+
+    wanted: list[Capability] = []
+    for capability in CAPABILITIES:
+        ready = capability.installed() and configured(capability)
+        mark = "on " if ready else "off"
+        colour = "green" if ready else "yellow"
+        typer.secho(f"[{mark}] {capability.name}", fg=colour, bold=True)
+        typer.echo(f"      with    : {capability.buys}")
+        typer.echo(f"      without : {capability.without}")
+        if ready:
+            continue
+        if capability.download_gb:
+            typer.echo(f"      download: {capability.download_gb:.1f} GB")
+        if not non_interactive and typer.confirm(f"      set up {capability.name}?", default=True):
+            wanted.append(capability)
+
+    typer.echo("")
+    _report_grobid(docker_version(), grobid_command())
+
+    if non_interactive:
+        return
+    if not wanted:
+        typer.echo("\nNothing to set up.")
+        return
+
+    command = install_command(wanted)
+    if command:
+        typer.secho(f"\nPackages to install:\n  {command}", bold=True)
+        if typer.confirm("run it now?", default=True):
+            _install(command)
+
+    settings = {name: value for capability in wanted for name, value in capability.env}
+    if settings:
+        existing = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+        contents = merge_env(existing, settings) if existing else env_file(settings)
+        env_path.write_text(contents, encoding="utf-8")
+        typer.secho(f"Wrote {env_path}", fg="green")
+        for name, value in sorted(settings.items()):
+            typer.echo(f"  {name}={value}")
+
+    total = download_size(wanted)
+    if fetch and total:
+        typer.echo(f"\nFetching models ({total:.1f} GB). This runs once.")
+        _fetch_models(wanted)
+
+
+def _report_grobid(version: int | None, command: str) -> None:
+    """Ingestion needs a GROBID service, which is not a Python package."""
+    from kiwi.registry import default_ingestor
+
+    if default_ingestor().health().ok:
+        typer.secho("[on ] PDF ingestion", fg="green", bold=True)
+        return
+
+    typer.secho("[off] PDF ingestion", fg="yellow", bold=True)
+    typer.echo("      with    : the paper's section tree and its reference list")
+    typer.echo("      without : `kiwi ingest --text-only`, which needs no service and finds")
+    typer.echo("                neither, and which a later GROBID parse replaces in place")
+    if version is None:
+        typer.echo("      Docker was not found. GROBID parses the PDFs; install Docker, then:")
+    else:
+        typer.echo(f"      Docker {version} found. Start GROBID with:")
+    typer.echo(f"      {command}")
+
+
+def _install(command: str) -> None:
+    """Run the install, then check what it did to the accelerator.
+
+    Resolving an extra pulls torch from PyPI, which ships a CPU-only
+    build on some platforms and replaces a CUDA one already installed.
+    The failure is silent: models keep working and run an order of
+    magnitude slower.
+    """
+    import subprocess
+
+    from kiwi.setup import accelerator_lost, cuda_command
+
+    result = subprocess.run(command.split(), check=False)
+    if result.returncode != 0:
+        typer.secho(f"install failed, exit code {result.returncode}", fg="red")
+        return
+
+    if accelerator_lost():
+        typer.secho(
+            "\nThis machine has an NVIDIA card, and the install replaced torch "
+            "with a CPU-only build. Put the CUDA build back with:",
+            fg="yellow",
+        )
+        typer.echo(f"  {cuda_command()}")
+
+
+def _fetch_models(capabilities: list[Capability]) -> None:
+    for capability in capabilities:
+        for model in capability.models:
+            typer.echo(f"  {model}")
+            try:
+                from huggingface_hub import snapshot_download
+
+                snapshot_download(model)
+            except Exception as exc:  # network, auth, and disk all fail here
+                typer.secho(f"    failed: {exc}", fg="red")
+                typer.echo("    it will be fetched on first use instead")
+
 
 @app.command()
 def health(
@@ -242,6 +424,8 @@ def health(
 
     embedder = default_embedder()
     typer.echo(f"embedder  : {embedder.name if embedder else 'none (BM25 keyword search)'}")
+    reranker = default_reranker()
+    typer.echo(f"reranker  : {reranker.name if reranker else 'none (rank fusion alone)'}")
     aligner = default_aligner()
     typer.echo(f"aligner   : {aligner.name if aligner else 'none (citations shown unscored)'}")
     generator = default_generator()
@@ -275,6 +459,7 @@ def evaluate(
     doc_ids = sorted({pair.document_id for pair in pairs})
     documents = [read_document(project, doc_id) for doc_id in doc_ids]
     embedder = default_embedder()
+    reranker = default_reranker()
 
     modes: list[RetrievalMode] = ["bm25"] if embedder is None else ["bm25", "vector", "hybrid"]
     typer.echo(f"{len(pairs)} golden pairs across {len(documents)} papers")
@@ -299,6 +484,7 @@ def evaluate(
                     Path(tmp) / f"{mode}-{name.split()[0]}",
                     embedder,
                     retrieval_mode=mode,
+                    reranker=reranker,
                 )
                 typer.secho(f"{result.name}  (n={result.metrics.n})", fg="green", bold=True)
                 for k in sorted(result.metrics.recall_at):
@@ -553,29 +739,31 @@ def evaluate_revisions_command(
 
     flagged: list[str] = []
     evidence: list[list[Chunk]] = []
+    instructions: list[str] = []
     for pair in load_alignment_set(labelled):
         if pair.label != REJECTED:
             continue
         hits = retrieve(project, pair.claim, _ALIGN_PASSAGES, pair.citation)
+        passages = [hit.chunk for hit in hits]
         flagged.append(pair.claim)
-        evidence.append([hit.chunk for hit in hits])
+        evidence.append(passages)
+        # The instruction quotes the passage the claim was scored against,
+        # so it is built per claim rather than once for the set.
+        scored = aligner.align(pair.claim, Intent.EVIDENCE, passages, Depth.QUICK)
+        instructions.append(_revision_instruction(scored))
 
     if not flagged:
         typer.secho("No claims labelled 0 in this set.", fg="yellow")
         raise typer.Exit(code=1)
 
-    # The instruction carries the evidence passage, so it is built from a
-    # scored claim rather than written here.
-    scored = aligner.align(flagged[0], Intent.EVIDENCE, evidence[0], Depth.QUICK)
-    metrics = evaluate_revisions(
-        flagged, evidence, generator, aligner, _revision_instruction(scored)
-    )
+    metrics = evaluate_revisions(flagged, evidence, generator, aligner, instructions)
 
     typer.echo(f"{metrics.n} claims labelled unsupported")
     typer.secho(f"repaired    : {metrics.repaired:.3f}", bold=True, fg="green")
     typer.echo(f"hedged      : {metrics.hedged:.3f}")
     typer.secho(f"unrepaired  : {metrics.unrepaired:.3f}", fg="red")
     typer.echo(f"assertion dropped : {metrics.gutted:.3f}")
+    typer.echo(f"only negated      : {metrics.negated:.3f}")
 
 
 @app.command("evaluate-alignment")

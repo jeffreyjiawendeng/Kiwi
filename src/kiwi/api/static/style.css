@@ -585,3 +585,44 @@ th {
   display: inline-block;
   width: auto;
 }
+
+.status-pill.unchecked {
+  background: var(--bg-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* A retraction is the one reference status a reader has to act on. */
+.notice-row td {
+  color: var(--danger);
+  font-size: 0.9em;
+  padding-top: 0;
+}
+
+/* An empty list states what fills it, and must not look clickable. */
+.nav-list li.nav-empty {
+  color: var(--text-muted);
+  font-size: 0.85em;
+  cursor: default;
+  padding: 6px 10px;
+}
+
+.nav-list li.nav-empty:hover {
+  background: none;
+}
+
+/* A long parse should look busy rather than unresponsive. */
+body.busy {
+  cursor: progress;
+}
+
+.btn-icon:disabled {
+  opacity: 0.4;
+  cursor: progress;
+}
+
+/* Dropping PDFs onto the window adds them. */
+#app.dropping {
+  outline: 3px dashed var(--accent);
+  outline-offset: -6px;
+}

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from kiwi.components.generate import LiteLLMGenerator
 from kiwi.protocols import Generator
 from kiwi.types import Anchor, Chunk, Hit
@@ -87,3 +89,55 @@ def test_suggest_returns_model_output() -> None:
         suggestions = generator.suggest("A loose, wordy sentence.", "Tighten this.")
 
     assert suggestions == ["A tighter sentence."]
+
+
+def test_sampling_is_off_unless_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A figure that moves between runs cannot be checked against
+    # anything, and both the answer and the suggested revision are
+    # measured against the passages they came from.
+    from kiwi.components.generate.litellm_generator import (
+        DEFAULT_TEMPERATURE,
+        LiteLLMGenerator,
+    )
+
+    monkeypatch.delenv("KIWI_GENERATOR_TEMPERATURE", raising=False)
+    assert LiteLLMGenerator(model="m").temperature == DEFAULT_TEMPERATURE == 0.0
+
+    monkeypatch.setenv("KIWI_GENERATOR_TEMPERATURE", "0.7")
+    assert LiteLLMGenerator(model="m").temperature == 0.7
+
+    assert LiteLLMGenerator(model="m", temperature=0.2).temperature == 0.2
+
+
+@pytest.mark.parametrize(
+    ("text", "supplied", "expected"),
+    [
+        ("The graph has 70554 nodes [2].", 5, "The graph has 70554 nodes [2]."),
+        ("Throughput doubled [7].", 5, "Throughput doubled."),
+        ("Both hold [1][9][3].", 5, "Both hold [1][3]."),
+        ("No markers at all here.", 5, "No markers at all here."),
+        ("Cited beyond the end [6][7].", 5, "Cited beyond the end."),
+    ],
+)
+def test_a_reference_to_a_passage_never_supplied_is_removed(
+    text: str, supplied: int, expected: str
+) -> None:
+    # An out-of-range marker carries no citation, so leaving it in the
+    # answer shows a reference with nothing behind it.
+    from kiwi.components.generate.litellm_generator import _drop_unresolvable
+
+    assert _drop_unresolvable(text, supplied) == expected
+
+
+def test_the_answer_text_and_its_citations_agree() -> None:
+    # Three passages were supplied and the answer cites a ninth. The
+    # citation list already dropped it, so the text has to as well.
+    generator = LiteLLMGenerator(model="test/model")
+    hits = [_hit(f"passage {i}", i) for i in range(3)]
+
+    with patch("litellm.completion", return_value=_mock_completion("A claim [1]. Another [9].")):
+        answer = generator.generate("a question", hits)
+
+    assert "[9]" not in answer.text
+    assert answer.text == "A claim [1]. Another."
+    assert len(answer.citations) == 1

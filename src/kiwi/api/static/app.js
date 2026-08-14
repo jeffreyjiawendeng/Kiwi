@@ -8,6 +8,7 @@ const state = {
   papers: [],
   notes: [],
   drafts: [],
+  busy: false, // a parse or an index is running
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -53,6 +54,19 @@ function setActiveNavItem(el) {
 
 // ---------------------------------------------------------------- project
 
+async function suggestProjectPath() {
+  // Typing an absolute path from nothing is the worst part of a first
+  // run, and a browser cannot supply one. The server can.
+  const input = $("#open-project-path");
+  if (input.value.trim()) return;
+  try {
+    const { path } = await api("/projects/default");
+    input.value = path;
+  } catch {
+    /* the placeholder still shows the shape of an answer */
+  }
+}
+
 async function refreshRecentProjects() {
   const { projects } = await api("/projects");
   const list = $("#recent-projects");
@@ -76,7 +90,24 @@ async function openProject(path, name) {
   $("#sidebar").hidden = false;
   setStatus(path, "");
   await refreshProjectSummary();
-  showAsk();
+  // Asking a project with nothing in it returns nothing, which reads as a
+  // broken search rather than an empty library.
+  if (state.papers.length) {
+    showAsk();
+  } else {
+    showEmptyProject();
+  }
+}
+
+function showEmptyProject() {
+  $("#view-empty").innerHTML = `
+    <h1>Nothing in this project yet</h1>
+    <p class="muted">Kiwi answers questions about papers you have added, and every answer points back at the passage it came from.</p>
+    <p><button id="empty-add-paper-btn">Add PDFs</button></p>
+    <p class="muted">Papers are parsed by GROBID into sections and a reference list. Without it running, Kiwi reads the text layer alone and finds neither, and re-reading them later replaces them in place.</p>
+  `;
+  $("#empty-add-paper-btn").addEventListener("click", () => $("#paper-file-input").click());
+  showView("empty");
 }
 
 async function refreshProjectSummary() {
@@ -87,14 +118,93 @@ async function refreshProjectSummary() {
   renderSidebarLists();
 }
 
+// ------------------------------------------------------------ add papers
+
+// GROBID recovers the section tree and the reference list. Without it a
+// paper can still be read through its own text layer, which finds
+// neither. The choice is offered rather than made silently, because the
+// two produce different documents from the same file.
+async function addPapers(files) {
+  if (!files.length || state.busy) return;
+
+  let textOnly = false;
+  const ingestor = await api("/health/ingestor");
+  if (!ingestor.ok) {
+    const proceed = confirm(
+      `GROBID is not running, so sections and references cannot be extracted.\n\n` +
+        `${ingestor.detail}\n\n` +
+        `Read the text layer alone instead? The papers keep their identity, ` +
+        `so parsing them again through GROBID later replaces them in place.`
+    );
+    if (!proceed) {
+      setStatus("Start GROBID, then add the papers again.");
+      return;
+    }
+    textOnly = true;
+  }
+
+  // Parsing a paper takes seconds and indexing takes longer. Without a
+  // guard the button invites a second run over the same files.
+  setBusy(true);
+  const added = [];
+  const failed = [];
+  try {
+    for (const [i, file] of files.entries()) {
+      setStatus(`Reading ${file.name} (${i + 1} of ${files.length}) ...`);
+      const body = new FormData();
+      body.append("file", file);
+      body.append("project", state.project);
+      body.append("text_only", String(textOnly));
+      try {
+        const result = await api("/ingest", { method: "POST", body });
+        added.push(result.document_id);
+      } catch (error) {
+        failed.push(`${file.name}: ${error.message}`);
+      }
+    }
+
+    if (added.length) {
+      setStatus(`Indexing ${added.length} paper(s) ...`);
+      await api("/index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: state.project }),
+      });
+      await refreshProjectSummary();
+    }
+  } finally {
+    setBusy(false);
+  }
+
+  const summary = `${added.length} paper(s) added${textOnly ? ", text layer only" : ""}`;
+  setStatus(failed.length ? `${summary}, ${failed.length} failed` : summary);
+  if (failed.length) reportError(new Error(failed.join("\n")));
+}
+
+function setBusy(busy) {
+  state.busy = busy;
+  document.body.classList.toggle("busy", busy);
+  const button = $("#add-paper-btn");
+  if (button) button.disabled = busy;
+}
+
 function paperTitle(documentId) {
   const paper = state.papers.find((p) => p.document_id === documentId);
   return paper ? paper.title : documentId;
 }
 
+// An empty list says what fills it. A blank one reads as a failure.
+function renderEmptyHint(list, text) {
+  const li = document.createElement("li");
+  li.className = "nav-empty";
+  li.textContent = text;
+  list.appendChild(li);
+}
+
 function renderSidebarLists() {
   const papersList = $("#papers-list");
   papersList.innerHTML = "";
+  if (!state.papers.length) renderEmptyHint(papersList, "No papers. Use + to add PDFs.");
   for (const paper of state.papers) {
     const li = document.createElement("li");
     const badgeClass = paper.verification === "resolved" ? "resolved" : paper.verification === "issues" ? "issues" : "";
@@ -108,6 +218,7 @@ function renderSidebarLists() {
 
   const notesList = $("#notes-list");
   notesList.innerHTML = "";
+  if (!state.notes.length) renderEmptyHint(notesList, "No notes yet.");
   for (const relpath of state.notes) {
     const li = document.createElement("li");
     li.textContent = relpath;
@@ -120,6 +231,7 @@ function renderSidebarLists() {
 
   const draftsList = $("#drafts-list");
   draftsList.innerHTML = "";
+  if (!state.drafts.length) renderEmptyHint(draftsList, "No drafts yet.");
   for (const relpath of state.drafts) {
     const li = document.createElement("li");
     li.textContent = relpath;
@@ -147,13 +259,18 @@ async function showPaper(documentId) {
   const refRows = paper.references
     .map((ref, i) => {
       const match = verification.results[i];
-      const status = match ? match.status : "unresolved";
+      const status = match ? match.status : "unchecked";
+      // A retraction is the one status a reader has to act on, so the
+      // notice is shown rather than left behind the status alone.
+      const notice = match && match.retraction_notice
+        ? `<tr class="notice-row"><td colspan="4">${escapeHtml(match.retraction_notice)}</td></tr>`
+        : "";
       return `<tr>
         <td>${escapeHtml(ref.title || ref.raw)}</td>
         <td>${ref.year ?? ""}</td>
         <td>${escapeHtml(ref.doi || "")}</td>
         <td><span class="status-pill ${status}">${status}</span></td>
-      </tr>`;
+      </tr>${notice}`;
     })
     .join("");
 
@@ -166,6 +283,7 @@ async function showPaper(documentId) {
     <p class="muted">${escapeHtml(authorNames)}</p>
     <p>
       <button class="btn-secondary" id="copy-citation-btn">Copy citation marker [@${documentId}]</button>
+      <button class="btn-secondary" id="verify-refs-btn">Verify references</button>
     </p>
     <h2>Sections</h2>
     <ul>${paper.sections.map((s) => `<li>${"&nbsp;&nbsp;".repeat(s.level - 1)}${escapeHtml(s.title || s.path)}</li>`).join("")}</ul>
@@ -186,6 +304,20 @@ async function showPaper(documentId) {
     navigator.clipboard.writeText(`[@${documentId}]`);
     setStatus(state.project, "Citation marker copied");
   });
+  $("#verify-refs-btn").addEventListener(
+    "click",
+    wrapAsync(async () => {
+      setStatus(`Resolving ${paper.references.length} reference(s) against Crossref ...`);
+      await api("/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: state.project, document_id: documentId }),
+      });
+      await refreshProjectSummary();
+      await showPaper(documentId);
+      setStatus(state.project, "References verified");
+    })
+  );
 
   await setUpAnnotating(documentId, paper.text);
   showView("paper");
@@ -414,13 +546,17 @@ async function showReview(relpath) {
     <div id="review-items">${body.items.map(renderReviewItem).join("")}</div>
     <h2>Decisions recorded</h2>
     <ul>${history || '<li class="muted">None yet.</li>'}</ul>
-    <p><button class="btn-secondary" id="back-to-draft">Back to draft</button></p>
+    <p>
+      <button class="btn-secondary" id="back-to-draft">Back to draft</button>
+      <button class="btn-secondary" id="process-record-btn">Process record</button>
+    </p>
   `;
 
   $("#review-actor").addEventListener("change", (event) => {
     state.actor = event.target.value.trim();
   });
   $("#back-to-draft").addEventListener("click", wrapAsync(() => showDraft(relpath)));
+  $("#process-record-btn").addEventListener("click", wrapAsync(() => showProcessRecord(relpath)));
 
   $$(".review-record", $("#view-review")).forEach((button) =>
     button.addEventListener(
@@ -534,7 +670,7 @@ const SCORE_LABEL = {
   },
   attribution: {
     0: "is not the origin of this",
-    1: "is the origin of this",
+    1: "is the origin of this, on a reading to check",
   },
 };
 
@@ -543,12 +679,16 @@ function scoreLabel(intent, score) {
   return scale[score] ?? "scored";
 }
 
-// The class sets the emphasis: flagged, plain, or silent.
+// The class sets the emphasis: flagged, plain, or silent. Attribution
+// credits the wrong work often enough that a credit is never silent: it
+// is marked for reading, the way a claim the evidence does not establish
+// is. See eval/README.md.
 function scoreClass(intent, score) {
-  if (intent === "attribution") return score === 1 ? "score-2" : "score-0";
+  if (intent === "attribution") return score === 1 ? "score-1" : "score-0";
   return `score-${score}`;
 }
 const INTENTS = ["evidence", "attribution", "background", "methods", "contrast"];
+const APPROXIMATE_INTENTS = new Set(["attribution"]);
 
 function renderClaim(claim) {
   // A supporting score is reported without emphasis, a claim the work
@@ -571,6 +711,10 @@ function renderClaim(claim) {
     ? '<span class="badge issues">stale</span>'
     : "";
 
+  const approximate = APPROXIMATE_INTENTS.has(claim.intent)
+    ? '<span class="badge issues" title="Attribution can credit the wrong work. Read the passage before relying on this score.">approximate</span>'
+    : "";
+
   const evidence = shown && shown.evidence
     ? `<div class="claim-evidence">${escapeHtml(shown.evidence.exact)}</div>`
     : '<div class="claim-evidence muted">No passage was read for this claim.</div>';
@@ -580,6 +724,7 @@ function renderClaim(claim) {
     <div class="claim-meta">
       ${shown ? `<strong>${escapeHtml(paperTitle(claim.citation))}</strong> ${escapeHtml(scoreLabel(claim.intent, shown.score))}` : `<strong>${escapeHtml(paperTitle(claim.citation))}</strong> not scored`}
       ${stale}
+      ${approximate}
       <label>intent
         <select class="claim-intent">${intentOptions}</select>
       </label>
@@ -874,6 +1019,155 @@ function reportError(err) {
   setTimeout(() => banner.remove(), 6000);
 }
 
+// ------------------------------------------------------- process record
+
+// What was proposed, what was declined, and what was decided. The
+// declined half is gated on a separate permission, so a reader without it
+// sees an empty list rather than an error.
+async function showProcessRecord(relpath) {
+  const who = state.actor || "";
+  const query = `project=${encodeURIComponent(state.project)}${who ? `&actor=${encodeURIComponent(who)}` : ""}`;
+  const record = await api(`/process-record/${relpath}?${query}`);
+
+  const decisions = record.decisions
+    .map(
+      (d) => `<tr>
+        <td>${escapeHtml(d.claim)}</td>
+        <td>${escapeHtml(paperTitle(d.citation))}</td>
+        <td>${escapeHtml(d.decision)}</td>
+        <td>${escapeHtml(d.reviewer)}</td>
+        <td>${escapeHtml(d.recorded || "")}</td>
+      </tr>`
+    )
+    .join("");
+
+  const suggestions = (entries, empty) =>
+    entries.length
+      ? `<ul>${entries
+          .map(
+            (s) =>
+              `<li><span class="muted">${escapeHtml(s.current || "")}</span><br />${escapeHtml(s.proposed || "")}</li>`
+          )
+          .join("")}</ul>`
+      : `<p class="muted">${empty}</p>`;
+
+  $("#view-review").innerHTML = `
+    <h1>Process record: ${escapeHtml(relpath)}</h1>
+    <p class="muted">Every decision recorded against this draft, and every revision proposed for it.</p>
+    <h2>Decisions</h2>
+    <table>
+      <thead><tr><th>Claim</th><th>Cites</th><th>Decision</th><th>Reviewer</th><th>Recorded</th></tr></thead>
+      <tbody>${decisions || '<tr><td colspan="5" class="muted">None recorded.</td></tr>'}</tbody>
+    </table>
+    <h2>Revisions accepted</h2>
+    ${suggestions(record.accepted, "None accepted.")}
+    <h2>Revisions declined</h2>
+    ${suggestions(record.rejected, "None declined, or not visible to you.")}
+    <p><button class="btn-secondary" id="back-to-review">Back to review</button></p>
+  `;
+  $("#back-to-review").addEventListener("click", wrapAsync(() => showReview(relpath)));
+  showView("review");
+}
+
+// ------------------------------------------------------------- settings
+
+// Roles are a strictly nested ladder: each rank holds every permission of
+// the rank below it and at least one more. The count is shown rather than
+// the list, which runs to dozens.
+async function showSettings() {
+  const settings = await api(
+    `/projects/settings?project=${encodeURIComponent(state.project)}`
+  );
+  const roleOptions = settings.roles
+    .map((r) => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`)
+    .join("");
+
+  const roleRows = settings.roles
+    .map(
+      (r) => `<tr>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${r.rank}</td>
+        <td>${r.permissions.length}</td>
+      </tr>`
+    )
+    .join("");
+
+  const memberRows = settings.members.length
+    ? settings.members
+        .map(
+          (m) => `<tr>
+            <td>${escapeHtml(m.name)}</td>
+            <td>
+              <select class="member-role" data-name="${escapeHtml(m.name)}">
+                ${roleOptions.replace(`value="${escapeHtml(m.role)}"`, `value="${escapeHtml(m.role)}" selected`)}
+              </select>
+            </td>
+          </tr>`
+        )
+        .join("")
+    : '<tr><td colspan="2" class="muted">No members yet.</td></tr>';
+
+  $("#view-settings").innerHTML = `
+    <h1>Settings</h1>
+    <h2>Ownership</h2>
+    <p>Owner: <strong>${escapeHtml(settings.owner || "(unset)")}</strong></p>
+    <p class="muted">Successors, in order: ${escapeHtml(settings.successors.join(", ") || "none")}</p>
+    <h2>Acting as</h2>
+    <p class="muted">Review decisions and annotations are recorded against this name.</p>
+    <p><input type="text" id="actor-input" value="${escapeHtml(state.actor)}" placeholder="your name" /></p>
+    <h2>Roles</h2>
+    <table>
+      <thead><tr><th>Role</th><th>Rank</th><th>Permissions</th></tr></thead>
+      <tbody>${roleRows}</tbody>
+    </table>
+    <h2>Members</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Role</th></tr></thead>
+      <tbody>${memberRows}</tbody>
+    </table>
+    <form id="add-member-form">
+      <input type="text" id="member-name" placeholder="name" required />
+      <select id="member-role">${roleOptions}</select>
+      <button type="submit">Add or update</button>
+    </form>
+    <h2>Required reviews</h2>
+    <p class="muted">${escapeHtml(settings.required_reviews.join(", ") || "none")}</p>
+  `;
+
+  $("#actor-input").addEventListener("change", (event) => {
+    state.actor = event.target.value.trim();
+    setStatus(state.project, state.actor ? `Acting as ${state.actor}` : "");
+  });
+
+  $("#add-member-form").addEventListener(
+    "submit",
+    wrapAsync(async (event) => {
+      event.preventDefault();
+      await setMemberRole($("#member-name").value.trim(), $("#member-role").value);
+    })
+  );
+
+  $$(".member-role").forEach((select) =>
+    select.addEventListener(
+      "change",
+      wrapAsync(() => setMemberRole(select.dataset.name, select.value))
+    )
+  );
+
+  showView("settings");
+}
+
+async function setMemberRole(name, role) {
+  if (!name) return;
+  await api("/projects/members", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project: state.project, name, role }),
+  });
+  setStatus(state.project, `${name} is now ${role}`);
+  await showSettings();
+}
+
 function wrapAsync(fn) {
   return (...args) => Promise.resolve(fn(...args)).catch(reportError);
 }
@@ -898,6 +1192,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setStatus("", "");
       showView("launcher");
       await refreshRecentProjects();
+      await suggestProjectPath();
     })
   );
 
@@ -905,5 +1200,56 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#new-note-btn").addEventListener("click", wrapAsync(createNote));
   $("#new-draft-btn").addEventListener("click", wrapAsync(createDraft));
 
-  wrapAsync(refreshRecentProjects)();
+  $("#settings-nav-btn").addEventListener(
+    "click",
+    wrapAsync(async (event) => {
+      setActiveNavItem(event.target);
+      await showSettings();
+    })
+  );
+
+  // Dropping PDFs anywhere in the window adds them. A dropped folder
+  // cannot be read this way, so only files are taken.
+  const dropZone = $("#app");
+  dropZone.addEventListener("dragover", (event) => {
+    if (!state.project) return;
+    event.preventDefault();
+    dropZone.classList.add("dropping");
+  });
+  ["dragleave", "dragend", "drop"].forEach((name) =>
+    dropZone.addEventListener(name, () => dropZone.classList.remove("dropping"))
+  );
+  dropZone.addEventListener(
+    "drop",
+    wrapAsync(async (event) => {
+      if (!state.project) return;
+      event.preventDefault();
+      const files = Array.from(event.dataTransfer?.files || []).filter((f) =>
+        f.name.toLowerCase().endsWith(".pdf")
+      );
+      if (!files.length) {
+        setStatus(state.project, "Only PDFs can be added by dropping them.");
+        return;
+      }
+      await addPapers(files);
+    })
+  );
+
+  const paperInput = $("#paper-file-input");
+  $("#add-paper-btn").addEventListener("click", () => paperInput.click());
+  paperInput.addEventListener(
+    "change",
+    wrapAsync(async () => {
+      const files = Array.from(paperInput.files || []);
+      // Cleared before the upload so that choosing the same file again
+      // still raises a change event.
+      paperInput.value = "";
+      await addPapers(files);
+    })
+  );
+
+  wrapAsync(async () => {
+    await refreshRecentProjects();
+    await suggestProjectPath();
+  })();
 });

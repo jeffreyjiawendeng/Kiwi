@@ -15,15 +15,24 @@ from collections.abc import Sequence
 from kiwi.types import Answer, Citation, Health, Hit
 
 DEFAULT_MODEL = "gpt-4o-mini"
+
+# Sampling is off by default. An answer and a suggested revision are both
+# checked against the passages they came from, and a figure that moves
+# between runs cannot be checked against anything. ``KIWI_GENERATOR_TEMPERATURE``
+# raises it.
+DEFAULT_TEMPERATURE = 0.0
+
 _CITATION_RE = re.compile(r"\[(\d+)\]")
 
 _SYSTEM_PROMPT = (
     "You answer questions strictly using the numbered passages provided. "
     "Every sentence that makes a factual claim must end with a bracketed "
     "reference to the passage number(s) that support it, for example [1] "
-    "or [1][2]. Do not use information that is not present in the "
-    "passages. If the passages do not answer the question, say so plainly "
-    "rather than guessing."
+    "or [1][2]. Every item in a list is such a sentence and carries its "
+    "own reference, even where the line introducing the list already has "
+    "one. Do not use information that is not present in the passages. If "
+    "the passages do not answer the question, say so plainly rather than "
+    "guessing."
 )
 
 _SUGGEST_PROMPT = (
@@ -32,13 +41,35 @@ _SUGGEST_PROMPT = (
 )
 
 
+def _drop_unresolvable(text: str, supplied: int) -> str:
+    """Remove bracketed references to passages that were never supplied.
+
+    An out-of-range marker carries no citation, so leaving it in the
+    answer shows the reader a reference with nothing behind it. Numbering
+    is left alone: the markers that do resolve still name the same
+    passages.
+    """
+
+    def keep(match: re.Match[str]) -> str:
+        return match.group(0) if 1 <= int(match.group(1)) <= supplied else ""
+
+    return re.sub(r"[ \t]+(?=[.,;:])", "", _CITATION_RE.sub(keep, text))
+
+
 class LiteLLMGenerator:
     """Answer synthesis constrained to retrieved passages."""
 
     name = "litellm"
 
-    def __init__(self, model: str | None = None) -> None:
+    def __init__(self, model: str | None = None, temperature: float | None = None) -> None:
         self.model = model or os.environ.get("KIWI_GENERATOR_MODEL", DEFAULT_MODEL)
+        configured = os.environ.get("KIWI_GENERATOR_TEMPERATURE")
+        if temperature is not None:
+            self.temperature = temperature
+        elif configured:
+            self.temperature = float(configured)
+        else:
+            self.temperature = DEFAULT_TEMPERATURE
 
     def health(self) -> Health:
         try:
@@ -60,12 +91,13 @@ class LiteLLMGenerator:
         numbered = "\n\n".join(f"[{i + 1}] {hit.chunk.text}" for i, hit in enumerate(passages))
         response = litellm.completion(
             model=self.model,
+            temperature=self.temperature,
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user", "content": f"Passages:\n{numbered}\n\nQuestion: {query}"},
             ],
         )
-        text = response["choices"][0]["message"]["content"] or ""
+        text = _drop_unresolvable(response["choices"][0]["message"]["content"] or "", len(passages))
         citations = self._extract_citations(text, passages)
         return Answer(text=text, citations=citations, generator=self.model)
 
@@ -87,6 +119,7 @@ class LiteLLMGenerator:
 
         response = litellm.completion(
             model=self.model,
+            temperature=self.temperature,
             messages=[
                 {"role": "system", "content": _SUGGEST_PROMPT},
                 {"role": "user", "content": f"Instruction: {instruction}\n\nText:\n{text}"},

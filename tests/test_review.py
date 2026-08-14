@@ -18,7 +18,7 @@ from kiwi.review import (
     record_decision,
     review_draft,
 )
-from kiwi.types import Alignment, Anchor, Depth, Document, Intent, Section
+from kiwi.types import Alignment, Anchor, Depth, Document, Intent, RefStatus, Section
 from kiwi.workspace import (
     ProjectSettings,
     document_id,
@@ -268,3 +268,68 @@ def test_submitting_for_review_is_refused_without_edit_rights(tmp_path: Path) ->
     root, _ = _project(tmp_path)
     with pytest.raises(PermissionDenied):
         submit_for_review(root, "intro.md", actor="lee")
+
+
+class _StubResolver:
+    """Resolves any reference to a fixed status."""
+
+    name = "stub"
+
+    def __init__(self, status: RefStatus, notice: str | None = None) -> None:
+        self.status = status
+        self.notice = notice
+        self.seen: list[str] = []
+
+    def health(self):  # type: ignore[no-untyped-def]
+        from kiwi.types import Health
+
+        return Health(ok=True, detail="stub")
+
+    def resolve(self, reference):  # type: ignore[no-untyped-def]
+        from kiwi.types import ResolvedReference
+
+        self.seen.append(reference.title or "")
+        return ResolvedReference(
+            reference=reference,
+            status=self.status,
+            doi=reference.doi,
+            metadata={},
+            retraction_notice=self.notice,
+            source="stub",
+        )
+
+    def resolve_batch(self, references):  # type: ignore[no-untyped-def]
+        return [self.resolve(r) for r in references]
+
+
+def test_verifying_a_cited_work_records_its_own_status(tmp_path: Path) -> None:
+    from kiwi.review import verify_cited_work
+
+    root, doc_id = _project(tmp_path)
+    resolver = _StubResolver(RefStatus.RESOLVED)
+
+    assert verify_cited_work(root, doc_id, resolver=resolver) == "resolved"
+    # The paper's own title is what was resolved, not one of its references.
+    assert resolver.seen == ["Retrieval Study"]
+    assert review_draft(root, "intro.md", actor="wei")[0].source_status == "resolved"
+
+
+def test_a_retracted_cited_work_surfaces_on_the_review_page(tmp_path: Path) -> None:
+    from kiwi.review import verify_cited_work
+
+    root, doc_id = _project(tmp_path)
+    verify_cited_work(root, doc_id, resolver=_StubResolver(RefStatus.RETRACTED, "withdrawn"))
+
+    item = review_draft(root, "intro.md", actor="wei")[0]
+    assert item.source_status == "retracted"
+
+
+def test_verification_without_a_resolver_records_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from kiwi.review import verify_cited_work
+
+    root, doc_id = _project(tmp_path)
+    monkeypatch.setenv("KIWI_NO_VERIFY", "1")
+    assert verify_cited_work(root, doc_id) is None
+    assert review_draft(root, "intro.md", actor="wei")[0].source_status == UNVERIFIED

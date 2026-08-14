@@ -1,0 +1,58 @@
+{
+  "field": "ecology, epidemiology, archaeology, psychology, and public health",
+  "license": "CC BY 4.0",
+  "source": "PLOS ONE (https://journals.plos.org/plosone/)",
+  "role": "held out: no setting was chosen against these papers",
+  "papers": [
+    {
+      "file": "pone.0261882.pdf",
+      "doi": "10.1371/journal.pone.0261882",
+      "title": "Working memory guidance of visual attention to threat in offenders"
+    },
+    {
+      "file": "pone.0263350.pdf",
+      "doi": "10.1371/journal.pone.0263350",
+      "title": "The rates and measurement of adherence to acamprosate in randomised controlled clinical trials: A systematic review"
+    },
+    {
+      "file": "pone.0264749.pdf",
+      "doi": "10.1371/journal.pone.0264749",
+      "title": "What is the effectiveness of a personalised video story after an online diabetes risk assessment? A Randomised Controlled Trial"
+    },
+    {
+      "file": "pone.0278263.pdf",
+      "doi": "10.1371/journal.pone.0278263",
+      "title": "Randomized controlled trial: Quantifying the impact of disclosing uncertainty on adherence to hypothetical health recommendations"
+    },
+    {
+      "file": "pone.0282896.pdf",
+      "doi": "10.1371/journal.pone.0282896",
+      "title": "Can children and adolescents with ADHD use attention to maintain verbal information in working memory?"
+    },
+    {
+      "file": "pone.0284127.pdf",
+      "doi": "10.1371/journal.pone.0284127",
+      "title": "Working memory and attention in choice"
+    },
+    {
+      "file": "pone.0285021.pdf",
+      "doi": "10.1371/journal.pone.0285021",
+      "title": "Assessing population dynamics in the Central Salish Sea, Pacific Northwest Coast of North America"
+    },
+    {
+      "file": "pone.0287841.pdf",
+      "doi": "10.1371/journal.pone.0287841",
+      "title": "Cat: Empirical modelling of Felis catus population dynamics in the UK"
+    },
+    {
+      "file": "pone.0302874.pdf",
+      "doi": "10.1371/journal.pone.0302874",
+      "title": "How do host population dynamics impact Lyme disease risk dynamics in theoretical models?"
+    },
+    {
+      "file": "pone.0317040.pdf",
+      "doi": "10.1371/journal.pone.0317040",
+      "title": "Mathematical assessment of the role of temperature on desert locust population dynamics"
+    }
+  ]
+}

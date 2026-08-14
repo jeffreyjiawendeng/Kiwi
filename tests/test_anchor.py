@@ -141,3 +141,54 @@ def test_text_not_present_is_unanchored() -> None:
     assert result.state is AnchorState.UNANCHORED
     # The exact text is preserved, never discarded.
     assert result.anchor.exact == anchor.exact
+
+
+def test_a_word_the_reparse_broke_across_a_line_is_relocated() -> None:
+    # The recorded quote carries no hyphen. The re-parse put a line break
+    # inside a word and left one behind, which is the common direction:
+    # the quote is stored once and the document is parsed again.
+    text = "The mutual authentication phase completes in two rounds."
+    needle = "mutual authentication phase"
+    anchor = _anchor(text, text.index(needle), text.index(needle) + len(needle))
+
+    reparsed = "Preamble. The mutual authenti-\ncation phase completes in two rounds."
+    result = resolve(anchor, reparsed)
+
+    assert result.state is AnchorState.SHIFTED
+    assert result.anchor.start == reparsed.index("mutual")
+    assert "authenti-\ncation" in reparsed[result.anchor.start : result.anchor.end]
+
+
+def test_a_short_quote_broken_across_a_line_is_still_relocated() -> None:
+    # A fixed edit-distance budget is a fraction of the quote, so a short
+    # quote has almost none. The break has to be matched rather than
+    # tolerated as an edit.
+    text = "Fig 3. The proposed architecture."
+    anchor = _anchor(text, 0, len(text))
+    reparsed = "Body text. Fig 3. The pro-\nposed architecture."
+    result = resolve(anchor, reparsed)
+    assert result.state is AnchorState.SHIFTED
+    assert reparsed[result.anchor.start : result.anchor.end].startswith("Fig 3.")
+
+
+def test_a_ligature_in_the_reparsed_text_is_relocated() -> None:
+    # A PDF text layer recovers "fi" and "ffi" as single glyphs, which
+    # canonical decomposition does not undo.
+    text = "We defined three user profiles for the office workload."
+    anchor = _anchor(text, 0, len(text))
+    reparsed = "Intro. We de\ufb01ned three user pro\ufb01les for the o\ufb03ce workload."
+    result = resolve(anchor, reparsed)
+    assert result.state is AnchorState.SHIFTED
+    assert reparsed[result.anchor.start : result.anchor.end].endswith("workload.")
+
+
+def test_a_ligature_split_across_two_glyphs_is_relocated() -> None:
+    # Producers differ on whether "ffi" becomes one glyph or "f" plus a
+    # two-letter ligature.
+    text = "The office suite was measured."
+    anchor = _anchor(text, 0, len(text))
+    for written in ("o\ufb03ce", "o\ufb00ice", "of\ufb01ce"):
+        reparsed = f"Intro. The {written} suite was measured."
+        result = resolve(anchor, reparsed)
+        assert result.state is AnchorState.SHIFTED, written
+        assert reparsed[result.anchor.start : result.anchor.end].endswith("measured."), written

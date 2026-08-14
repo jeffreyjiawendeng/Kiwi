@@ -1,0 +1,379 @@
+{
+  "field": "ecology, epidemiology, archaeology, psychology, public health",
+  "pairs": [
+    {
+      "query": "How many unowned cats are estimated to live in UK towns and cities?",
+      "document_id": "doc_1d5f4f1059ada45d",
+      "anchor": {
+        "start": 716,
+        "end": 777,
+        "exact": "An estimated 250,000 unowned cats live in UK towns and cities",
+        "prefix": "n [7] and local wildlife [8,9]. ",
+        "suffix": " [10], approximately 300,000 cat"
+      }
+    },
+    {
+      "query": "What age range defines an adult cat in this model?",
+      "document_id": "doc_1d5f4f1059ada45d",
+      "anchor": {
+        "start": 8185,
+        "end": 8259,
+        "exact": "Adults were defined as cats from 1 year up to, but not including, 11 years",
+        "prefix": "ths up to 11 months of age [2]. ",
+        "suffix": ". Senior cats were defined as ca"
+      }
+    },
+    {
+      "query": "At what age is a cat considered senior?",
+      "document_id": "doc_1d5f4f1059ada45d",
+      "anchor": {
+        "start": 8261,
+        "end": 8312,
+        "exact": "Senior cats were defined as cats 11 years and older",
+        "prefix": "o, but not including, 11 years. ",
+        "suffix": " [2,31]. These age classes were "
+      }
+    },
+    {
+      "query": "How was the carrying capacity of owned cats set?",
+      "document_id": "doc_1d5f4f1059ada45d",
+      "anchor": {
+        "start": 20317,
+        "end": 20410,
+        "exact": "We set the carrying capacity of owned cats to approximately 10% above the starting population",
+        "prefix": "ture of the cat subpopulations. ",
+        "suffix": ", given national owned-cat estim"
+      }
+    },
+    {
+      "query": "Has the owned-cat population changed much nationally?",
+      "document_id": "doc_1d5f4f1059ada45d",
+      "anchor": {
+        "start": 6215,
+        "end": 6306,
+        "exact": "estimates of the owned-cat population have remained relatively stable for the past 10 years",
+        "prefix": "a cat [2]. At a national level, ",
+        "suffix": " [3]. However, populations, espe"
+      }
+    },
+    {
+      "query": "How long do solitarious locust nymphs take to develop?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 15923,
+        "end": 15992,
+        "exact": "ranges from 30-48 days, thereby corresponding to a developmental rate",
+        "prefix": "s nymphs, as defined by 1/\u03b3 h , ",
+        "suffix": " \u03c3 h range from 0.0208 to 0.0333"
+      }
+    },
+    {
+      "query": "What is the lifespan of a desert locust?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 17276,
+        "end": 17383,
+        "exact": "The lifespan of desert locusts, irrespective of being solitarious or gregarious, ranges from 90 to 150 days",
+        "prefix": " h = \u03bc b \u00d7 0.95 \u00d7 0.9 = 0.7332. ",
+        "suffix": " [42]. Consequently, the mortali"
+      }
+    },
+    {
+      "query": "How long does desert locust egg incubation take?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 50987,
+        "end": 51094,
+        "exact": "Desert locust egg incubation typically lasts around two weeks but can vary significantly from 10 to 65 days",
+        "prefix": "al factor in outbreak dynamics. ",
+        "suffix": " due to fluctuating temperatures"
+      }
+    },
+    {
+      "query": "What effect do lower temperatures have on incubation?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 20304,
+        "end": 20414,
+        "exact": "lower temperatures can notably prolong the incubation period, with hatching times extending from 10 to 65 days",
+        "prefix": "e conditions [38]. In contrast, ",
+        "suffix": ". Conversely, excessively high t"
+      }
+    },
+    {
+      "query": "What lifespans were used for the host species?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 7267,
+        "end": 7361,
+        "exact": "Both species have a constant survival rate to provide lifespans of 2 and 3 years, respectively",
+        "prefix": " in potential comparisons [26]. ",
+        "suffix": ". This rate allows infection to "
+      }
+    },
+    {
+      "query": "How long was each simulation run?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 15285,
+        "end": 15350,
+        "exact": "Each simulation was run with a time step of 52 weeks for 50 years",
+        "prefix": "iation in these densities [21]. ",
+        "suffix": ". Simulations were repeated for "
+      }
+    },
+    {
+      "query": "How was disease risk determined from the model?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 16275,
+        "end": 16373,
+        "exact": "we calculated the mean, minimum, and maximum densities of infected and susceptible nymphs per year",
+        "prefix": "del prediction of disease risk, ",
+        "suffix": " for the last 10 years of each s"
+      }
+    },
+    {
+      "query": "Where did the temperature and precipitation measurements come from?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 14217,
+        "end": 14339,
+        "exact": "We obtained daily measurements of minimum and maximum temperature and precipitation from 22 sites throughout North America",
+        "prefix": ". PI w\u00fe1 \u00bc R w\u00fe1 \u00fe 0:65PI w\u00f012\u00de ",
+        "suffix": " [48]. Data were selected to cov"
+      }
+    },
+    {
+      "query": "How long are ticks of a cohort tracked?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 6317,
+        "end": 6391,
+        "exact": "We have set 52 weeks as a maximum limit that ticks of a cohort are tracked",
+        "prefix": "ife stage limits [26,28,29,31]. ",
+        "suffix": ". We used cumulative degree week"
+      }
+    },
+    {
+      "query": "Why was Kernel Density Estimation used?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 3895,
+        "end": 4009,
+        "exact": "A Kernel Density Estimation (KDE) model is used to account for smaller sample sizes after dividing dates by region",
+        "prefix": "ation and use of coastal areas. ",
+        "suffix": ", and by terrestrial or marine d"
+      }
+    },
+    {
+      "query": "How many residential moves were typical per year on the Northwest Coast?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 6254,
+        "end": 6337,
+        "exact": "Two to four residential moves were typical per year for many Northwest Coast groups",
+        "prefix": "6,[53][54][55][56][57][58][59]. ",
+        "suffix": " (Page 280 in [53]). Kin groups "
+      }
+    },
+    {
+      "query": "When did kin groups aggregate?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 6358,
+        "end": 6428,
+        "exact": "Kin groups would typically aggregate during the fall and winter months",
+        "prefix": "oast groups (Page 280 in [53]). ",
+        "suffix": ", resulting in villages consisti"
+      }
+    },
+    {
+      "query": "What happened to winter villages in spring and summer?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 6680,
+        "end": 6768,
+        "exact": "During spring and summer months, winter villages dispersed into smaller household groups",
+        "prefix": "romous fish for winter storage. ",
+        "suffix": " for harvesting seasonal resourc"
+      }
+    },
+    {
+      "query": "How far from shore divides interior from coastal sites?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 2151,
+        "end": 2224,
+        "exact": "the divide between interior and coastal sites is 10 km from the shoreline",
+        "prefix": "dates from the region. Finally, ",
+        "suffix": ", which separates riverine and m"
+      }
+    },
+    {
+      "query": "What is KDE suited to?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 4047,
+        "end": 4152,
+        "exact": "KDE is a useful approach for datasets where the underlying distribution of events are not well understood",
+        "prefix": "by terrestrial or marine dates. ",
+        "suffix": " (Page 1831 in [17]). KDE has be"
+      }
+    },
+    {
+      "query": "How many trials did the choice task have?",
+      "document_id": "doc_29269553c9cff8fe",
+      "anchor": {
+        "start": 7302,
+        "end": 7368,
+        "exact": "for a total of 54 trials in two separate runs separated by a break",
+        "prefix": "multaneously, but sequentially, ",
+        "suffix": ". After the sequential presentat"
+      }
+    },
+    {
+      "query": "What was the mean reaction time across participants?",
+      "document_id": "doc_29269553c9cff8fe",
+      "anchor": {
+        "start": 52452,
+        "end": 52482,
+        "exact": "the mean of the RT is 830.3 ms",
+        "prefix": "g the data of all participants, ",
+        "suffix": ", (SD = 636.3 ms, max = 5.7 s). "
+      }
+    },
+    {
+      "query": "Was there a learning effect across the first run?",
+      "document_id": "doc_29269553c9cff8fe",
+      "anchor": {
+        "start": 52514,
+        "end": 52591,
+        "exact": "There is a modest learning effect in the first run (5 ms reduction per trial)",
+        "prefix": ", (SD = 636.3 ms, max = 5.7 s). ",
+        "suffix": " and a small fatigue effect in t"
+      }
+    },
+    {
+      "query": "How many participants were in the ADHD and control groups of Experiment 1?",
+      "document_id": "doc_3e6b2f8c52dbefb5",
+      "anchor": {
+        "start": 15044,
+        "end": 15160,
+        "exact": "Fifteen participants took part in Experiment 1 in the ADHD group, and 19 participants took part in the control group",
+        "prefix": "n in Experiment 1. Participants ",
+        "suffix": ". One control was excluded from "
+      }
+    },
+    {
+      "query": "How long was the fixation point displayed at the start of a trial?",
+      "document_id": "doc_3e6b2f8c52dbefb5",
+      "anchor": {
+        "start": 17158,
+        "end": 17224,
+        "exact": "Each trial began with the display of the fixation point for 750 ms",
+        "prefix": " the same for all participants. ",
+        "suffix": ", followed by 500 ms of a blank "
+      }
+    },
+    {
+      "query": "Why were participants excluded from the control group?",
+      "document_id": "doc_3e6b2f8c52dbefb5",
+      "anchor": {
+        "start": 41779,
+        "end": 41856,
+        "exact": "We excluded two outliers in the first percentile of data in the control group",
+        "prefix": "sly taken part in Experiment 1. ",
+        "suffix": ", so that the final data analyse"
+      }
+    },
+    {
+      "query": "How many participants were analysed after exclusions?",
+      "document_id": "doc_460c469507617351",
+      "anchor": {
+        "start": 6427,
+        "end": 6467,
+        "exact": "data from 113 participants were analysed",
+        "prefix": "clusions. Following exclusions, ",
+        "suffix": " (M age = 41.29, SD age = 12.23;"
+      }
+    },
+    {
+      "query": "How long was the memory template shown?",
+      "document_id": "doc_460c469507617351",
+      "anchor": {
+        "start": 13403,
+        "end": 13467,
+        "exact": "Participants were presented with the memory template for 1500 ms",
+        "prefix": "l between 600 and 1600 ms [43]. ",
+        "suffix": " which they were asked to memori"
+      }
+    },
+    {
+      "query": "How many trials did each participant complete?",
+      "document_id": "doc_460c469507617351",
+      "anchor": {
+        "start": 14691,
+        "end": 14748,
+        "exact": "Each participant completed 192 trials in two blocks of 96",
+        "prefix": "ete another 15 practice trials. ",
+        "suffix": ". Participants completed the dua"
+      }
+    },
+    {
+      "query": "How many participants were recruited to the trial?",
+      "document_id": "doc_c2a364b85f3ef87b",
+      "anchor": {
+        "start": 4141,
+        "end": 4205,
+        "exact": "A total of 603 participants were recruited and randomly assigned",
+        "prefix": "specified eligibility criteria. ",
+        "suffix": " to see the initial public healt"
+      }
+    },
+    {
+      "query": "How many studies and participants were included in the review?",
+      "document_id": "doc_de51caac0247ec3c",
+      "anchor": {
+        "start": 8627,
+        "end": 8691,
+        "exact": "A total of 15 studies were included involving 4,450 participants",
+        "prefix": "matic search of the literature. ",
+        "suffix": " (2,480 participants in the plac"
+      }
+    },
+    {
+      "query": "What share of participants sought help during the follow-up period?",
+      "document_id": "doc_dfb757e471c8a50d",
+      "anchor": {
+        "start": 23455,
+        "end": 23550,
+        "exact": "a total of 214/477 participants (44.9%) acted by visiting a GP and/or other health professional",
+        "prefix": "n 20. For both groups combined, ",
+        "suffix": " during the 3-month period. A to"
+      }
+    },
+    {
+      "query": "How many participants reported visiting their GP?",
+      "document_id": "doc_dfb757e471c8a50d",
+      "anchor": {
+        "start": 23578,
+        "end": 23644,
+        "exact": "A total of 175/477 participants (36.7%) reported visiting their GP",
+        "prefix": "onal during the 3-month period. ",
+        "suffix": " and 148/477 participants (31.0%"
+      }
+    },
+    {
+      "query": "How many of those who acted saw both a GP and another professional?",
+      "document_id": "doc_dfb757e471c8a50d",
+      "anchor": {
+        "start": 23757,
+        "end": 23878,
+        "exact": "Just over half (50.9%) of the 214 participants who took any action, visited both their GP and another health professional",
+        "prefix": "ring the 3-months of follow-up. ",
+        "suffix": ". Table 2 outlines follow-up vis"
+      }
+    }
+  ]
+}

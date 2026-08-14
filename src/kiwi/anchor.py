@@ -10,7 +10,10 @@ Resolution order:
 2. Quote selector, exact search: is ``exact`` found once, or several times
    disambiguated by ``prefix``/``suffix``?
 3. Quote selector, tolerant search: same, but whitespace runs, quotation
-   mark variants, and line-break hyphenation are matched loosely.
+   mark variants, ligature glyphs, and line-break hyphenation are matched
+   loosely. Hyphenation is matched in both directions: the quote may
+   carry a break the document has lost, or the document may carry one the
+   quote never had.
 4. Quote selector, fuzzy search: best window within 5% edit distance.
 5. Otherwise: unanchored. ``exact`` is preserved, never discarded.
 """
@@ -27,6 +30,18 @@ from kiwi.types import Anchor
 
 _QUOTE_CHARS = "\"'‘’“”«»"
 _QUOTE_CLASS = "[" + re.escape(_QUOTE_CHARS) + "]"
+
+# A PDF text layer recovers these as ligature glyphs. Canonical
+# decomposition leaves them alone, so they are matched by name. A
+# three-letter sequence is listed with its partial forms as well, because
+# producers differ on whether they emit one glyph or two.
+_LIGATURES = {
+    "ffi": ("ﬃ", "ﬀi", "fﬁ"),
+    "ffl": ("ﬄ", "ﬀl", "fﬂ"),
+    "ff": ("ﬀ",),
+    "fi": ("ﬁ",),
+    "fl": ("ﬂ",),
+}
 
 
 class AnchorState(Enum):
@@ -134,6 +149,7 @@ def _tolerant_pattern(needle: str) -> re.Pattern[str] | None:
     normalized = unicodedata.normalize("NFC", needle)
     parts: list[str] = []
     i, n = 0, len(normalized)
+    after_letter = False
     while i < n:
         ch = normalized[i]
         if ch == "-":
@@ -145,6 +161,7 @@ def _tolerant_pattern(needle: str) -> re.Pattern[str] | None:
             else:
                 parts.append(r"-?")
             i = j if j > i + 1 else i + 1
+            after_letter = False
             continue
         if ch.isspace():
             j = i + 1
@@ -152,11 +169,35 @@ def _tolerant_pattern(needle: str) -> re.Pattern[str] | None:
                 j += 1
             parts.append(r"\s+")
             i = j
+            after_letter = False
             continue
         if ch in _QUOTE_CHARS:
             parts.append(_QUOTE_CLASS)
             i += 1
+            after_letter = False
             continue
+        ligature = next(
+            (
+                (normalized[i : i + size], _LIGATURES[normalized[i : i + size]])
+                for size in (3, 2)
+                if normalized[i : i + size] in _LIGATURES
+            ),
+            None,
+        )
+        if ligature is not None:
+            letters, forms = ligature
+            if after_letter:
+                parts.append(r"(?:-\s*)?+")
+            written = "|".join(re.escape(form) for form in (letters, *forms))
+            parts.append("(?:" + written + ")")
+            i += len(letters)
+            after_letter = True
+            continue
+        if after_letter and ch.isalpha():
+            # A re-parse breaks a word across a line and leaves a hyphen
+            # the recorded quote does not carry. Possessive, so a failed
+            # match does not backtrack through every letter of the quote.
+            parts.append(r"(?:-\s*)?+")
         decomposed = unicodedata.normalize("NFD", ch)
         if decomposed != ch:
             # Tolerate a precomposed character (e.g. U+00E9 'e') matching its
@@ -165,6 +206,7 @@ def _tolerant_pattern(needle: str) -> re.Pattern[str] | None:
             parts.append("(?:" + re.escape(ch) + "|" + re.escape(decomposed) + ")")
         else:
             parts.append(re.escape(ch))
+        after_letter = ch.isalpha()
         i += 1
     try:
         return re.compile("".join(parts))

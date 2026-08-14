@@ -6,6 +6,7 @@ against a recorded TEI fixture without a running GROBID service.
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -78,7 +79,7 @@ def _walk(
         elif tag in ("p", "formula"):
             buf.append(_text(child))
         elif tag == "figure":
-            caption = _text(child.find(_qn("figDesc"))).strip()
+            caption = _caption(_text(child.find(_qn("figDesc"))))
             if caption:
                 kind = "Table" if child.get("type") == "table" else "Figure"
                 buf.append(f"{kind}: {caption}")
@@ -86,6 +87,29 @@ def _walk(
             buf.append(_text(child))
         else:
             continue
+
+
+# Publishers append the component's identifier to its caption. It is not
+# part of what the caption says, and it reaches retrieval as a token that
+# matches nothing a reader would ask.
+_CAPTION_IDENTIFIER = re.compile(r"\s*(?:https?://(?:dx\.)?doi\.org/|doi:)\S+\s*$", re.IGNORECASE)
+
+
+def _caption(raw: str) -> str:
+    """A figure or table caption without its trailing identifier."""
+    return _CAPTION_IDENTIFIER.sub("", raw.strip()).strip()
+
+
+# A figure, table, equation, or supplement carries the article's DOI with a
+# component suffix. The full-text endpoint can put one of those in the
+# header, so a component DOI is reduced to the article it belongs to.
+_COMPONENT_DOI = re.compile(r"^(10\.\d{4,9}/\S+?)\.(?:g|t|e|s)\d{3,4}$", re.IGNORECASE)
+
+
+def _article_doi(raw: str) -> str:
+    """The article's DOI, with any component suffix removed."""
+    match = _COMPONENT_DOI.match(raw)
+    return match.group(1) if match else raw
 
 
 def _extract_metadata(root: ET.Element) -> Json:
@@ -105,7 +129,7 @@ def _extract_metadata(root: ET.Element) -> Json:
             authors.append({"family": family, "given": given})
 
     doi_el = header.find(f".//{_qn('sourceDesc')}//{_qn('idno')}[@type='DOI']")
-    doi = _text(doi_el).strip() or None
+    doi = _article_doi(_text(doi_el).strip()) or None
 
     date_el = header.find(f".//{_qn('sourceDesc')}//{_qn('imprint')}/{_qn('date')}")
     year = None

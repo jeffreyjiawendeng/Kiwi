@@ -68,7 +68,7 @@ def _run(proposal: str, rescored: int):
         evidence=[[_chunk()]],
         generator=_Generator(proposal),
         aligner=_Aligner(rescored),
-        instruction="revise against the passage",
+        instructions=["revise against the passage"],
     )
 
 
@@ -115,12 +115,67 @@ def test_the_rewrite_is_what_gets_rescored_not_the_original() -> None:
         evidence=[[_chunk()]],
         generator=_Generator(proposal),
         aligner=aligner,
-        instruction="revise",
+        instructions=["revise"],
     )
     assert aligner.scored == [proposal]
 
 
 def test_an_empty_set_reports_zeroes() -> None:
-    metrics = evaluate_revisions([], [], _Generator("x"), _Aligner(2), "revise")
+    metrics = evaluate_revisions([], [], _Generator("x"), _Aligner(2), [])
     assert metrics.n == 0
     assert metrics.repaired == 0.0
+
+
+def test_each_claim_is_rewritten_under_its_own_instruction() -> None:
+    # The instruction quotes the passage a claim was scored against.
+    # Reusing one claim's instruction for the set would rewrite every claim
+    # against the wrong evidence.
+    class _Recording(_Generator):
+        def __init__(self) -> None:
+            super().__init__("a rewritten claim that is long enough to keep")
+            self.instructions: list[str] = []
+
+        def suggest(self, text: str, instruction: str) -> list[str]:
+            self.instructions.append(instruction)
+            return [self.proposal]
+
+    generator = _Recording()
+    evaluate_revisions(
+        claims=[CLAIM, "A second claim that also needs revising"],
+        evidence=[[_chunk()], [_chunk()]],
+        generator=generator,
+        aligner=_Aligner(2),
+        instructions=["first passage", "second passage"],
+    )
+    assert generator.instructions == ["first passage", "second passage"]
+
+
+def test_a_rewrite_that_only_negates_the_claim_is_not_a_repair() -> None:
+    # The observed case: a claim reversed by inserting one word satisfies
+    # the evidence without correcting anything, and scores the same as a
+    # correction that took real work.
+    metrics = evaluate_revisions(
+        claims=["The experiments were run on a GPU cluster."],
+        evidence=[[_chunk()]],
+        generator=_Generator("The experiments were not run on a GPU cluster."),
+        aligner=_Aligner(2),
+        instructions=["revise"],
+    )
+    assert metrics.negated == 1.0
+    assert metrics.repaired == 0.0
+
+
+def test_a_correction_that_happens_to_contain_not_is_still_a_repair() -> None:
+    # The guard fires only when a negation is the whole difference.
+    metrics = _run("Accuracy reached 71 percent and did not exceed 95", rescored=2)
+    assert metrics.negated == 0.0
+    assert metrics.repaired == 1.0
+
+
+def test_negation_carried_by_an_inflected_verb_is_not_detected() -> None:
+    # "exceeded" to "did not exceed" is a negation, but the difference is
+    # more than the negating word. The guard is narrow on purpose: a looser
+    # rule would count real corrections as negations.
+    metrics = _run("Accuracy did not exceed 95 percent on every corpus", rescored=2)
+    assert metrics.negated == 0.0
+    assert metrics.repaired == 1.0

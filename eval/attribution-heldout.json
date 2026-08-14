@@ -1,0 +1,74 @@
+{
+  "pairs": [
+    {
+      "claim": "The empirical model of UK cat population dynamics was developed by the cited authors.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 1
+    },
+    {
+      "claim": "The temperature-dependent desert locust population model was introduced in the cited work.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 1
+    },
+    {
+      "claim": "The dynamic model of Borrelia burgdorferi prevalence was developed by the cited authors.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 1
+    },
+    {
+      "claim": "The synthesis of Salish Sea radiocarbon dates was produced by the cited authors.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 1
+    },
+    {
+      "claim": "Kernel Density Estimation was introduced by the cited authors.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 0
+    },
+    {
+      "claim": "Radiocarbon dating was first described in the cited work.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 0
+    },
+    {
+      "claim": "The concept of carrying capacity originates with this work.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "Population viability analysis was invented by the cited authors.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "The desert locust was first described by the cited authors.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "The basic reproduction number was introduced in the cited work.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "Borrelia burgdorferi was first identified by the cited authors.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "The compartmental model of infectious disease originates with this work.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "Lyme disease was first characterised by the cited authors.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "The Bayesian calibration of radiocarbon dates was devised by the cited authors.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 0
+    }
+  ]
+}

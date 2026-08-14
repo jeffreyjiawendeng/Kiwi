@@ -20,8 +20,8 @@ from kiwi.types import Anchor, Chunk, Document, Health, Section
 # at half, which keeps the band's shape when the target moves. Changing
 # either requires re-indexing, since chunk boundaries move with them. See
 # eval/README.md for the measured settings.
-TARGET_TOKENS = 768
-MIN_TOKENS = 384
+TARGET_TOKENS = 512
+MIN_TOKENS = 256
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 _CONTEXT_CHARS = 32
 

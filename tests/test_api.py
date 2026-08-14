@@ -634,3 +634,59 @@ def test_a_member_role_can_be_assigned(tmp_path: Path) -> None:
     )
     assert response.status_code == 200
     assert {m["name"]: m["role"] for m in response.json()["members"]}["sam"] == "Contributor"
+
+
+def test_ingest_without_grobid_reads_the_text_layer(tmp_path: Path) -> None:
+    # The path the web interface offers when GROBID is not running. It
+    # needs no service, so this runs everywhere.
+    project = tmp_path / "Demo.kiwi"
+    with FIXTURE.open("rb") as fh:
+        response = client.post(
+            "/ingest",
+            files={"file": ("sample.pdf", fh, "application/pdf")},
+            data={"project": str(project), "text_only": "true"},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["document_id"] == document_id(FIXTURE)
+    assert body["parser"].startswith("pypdf")
+    assert body["text_length"] > 0
+    # No section tree and no reference list is the cost of this path.
+    assert body["references"] == []
+
+
+def test_a_paper_keeps_its_identity_whichever_parser_read_it(tmp_path: Path) -> None:
+    # A paper added without GROBID and parsed properly later is the same
+    # paper, so annotations and citations made against it are not orphaned.
+    project = tmp_path / "Demo.kiwi"
+    with FIXTURE.open("rb") as fh:
+        first = client.post(
+            "/ingest",
+            files={"file": ("sample.pdf", fh, "application/pdf")},
+            data={"project": str(project), "text_only": "true"},
+        )
+    assert first.status_code == 200, first.text
+
+    if not GrobidIngestor().health().ok:
+        pytest.skip("GROBID is not running at http://localhost:8070")
+
+    with FIXTURE.open("rb") as fh:
+        second = client.post(
+            "/ingest",
+            files={"file": ("sample.pdf", fh, "application/pdf")},
+            data={"project": str(project)},
+        )
+    assert second.status_code == 200, second.text
+    assert second.json()["document_id"] == first.json()["document_id"]
+    assert second.json()["references"]
+
+
+def test_a_default_project_path_is_suggested() -> None:
+    # A browser cannot report an absolute path from a folder picker, so
+    # the launcher has to be given one to start from.
+    response = client.get("/projects/default")
+    assert response.status_code == 200
+    suggested = Path(response.json()["path"])
+    assert suggested.is_absolute()
+    assert suggested.suffix == ".kiwi"

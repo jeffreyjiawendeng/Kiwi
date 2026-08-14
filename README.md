@@ -27,6 +27,14 @@ uv sync --all-extras --dev
 
 `--all-extras` installs the optional embedding, generation, and alignment dependencies. Running `uv sync --dev` without it installs ingestion, chunking, BM25 retrieval, reference verification, and the web interface, with no model download and no API key required.
 
+To see what this machine can already do, and what each remaining capability costs and buys:
+
+```bash
+uv run kiwi setup
+```
+
+It reports every capability as on or off, gives the measured figure each one is worth, asks which to set up, and writes the chosen settings to `.env`, which is read at startup. The install command is shown before it runs and runs only when agreed to. Where the install replaces a CUDA build of torch with a CPU-only one, which resolving an extra can do, it says so and gives the command that puts it back. `--non-interactive` reports and exits.
+
 Start GROBID:
 
 ```bash
@@ -35,9 +43,15 @@ docker run --rm -p 8070:8070 -e JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport lfopp
 
 `JAVA_TOOL_OPTIONS` is required on Docker 29 and later. Without it the container exits on startup with a `CgroupInfo.getMountPoint()` null pointer, because the bundled JDK cannot read the newer runtime's cgroup layout.
 
+### Without Docker
+
+`kiwi ingest --text-only` reads a PDF's own text layer and needs no service. It finds no section tree and no references, so retrieval works and reference verification has nothing to check. A paper's identifier comes from the file, so re-ingesting it through GROBID later keeps the same paper: 0.941 of recorded quotes relocate across that change, and annotations follow their passage rather than being orphaned.
+
+Use it to try Kiwi in a minute. Use GROBID for the results in this README, all of which were measured on GROBID's output.
+
 ### GPU
 
-Embedding and claim alignment run on a GPU when one is present and fall back to the CPU when it is not. Retrieval returns the same results either way. Claim alignment uses a larger model where an accelerator is present, so its scores differ between the two.
+Embedding and claim alignment run on a GPU when one is present and fall back to the CPU when it is not. Retrieval returns the same results either way. Claim alignment uses larger models where an accelerator is present, so its scores differ between the two.
 
 PyPI ships a CPU-only build of torch on some platforms. Install a matching CUDA build to use an NVIDIA card:
 
@@ -60,6 +74,8 @@ uv run kiwi serve
 
 `kiwi serve` opens `http://127.0.0.1:8000/app/` in the browser. Open `MyProject.kiwi`, or any project folder, and browse Papers, Notes, and Drafts, or ask a question through the Ask view.
 
+Papers are added from the interface as well: use the `+` beside Papers, or drop PDFs onto the window. They are parsed, indexed, and ready to query without leaving the page. Where GROBID is not running, the interface offers to read the text layer alone rather than refusing the file.
+
 Every operation is also reachable directly over HTTP:
 
 ```bash
@@ -76,18 +92,23 @@ curl -X PUT http://127.0.0.1:8000/notes/reading-log.md -H "Content-Type: applica
 
 Kiwi is configured through environment variables. None are required; each has a default, or turns off a feature and leaves the rest working.
 
+A `.env` file in the working directory is read at startup, by both the CLI and the API. A variable already set in the environment outranks the file, so a value passed on the command line wins. `kiwi setup` writes this file.
+
 | Variable | Effect |
 |---|---|
 | `KIWI_GROBID_URL` | GROBID base URL. Defaults to `http://localhost:8070`. |
 | `KIWI_NO_EMBED` | Disables the embedding model. Retrieval falls back to BM25 keyword search. |
-| `KIWI_GENERATOR_MODEL` | A LiteLLM model string. Enables generated answers; unset, `kiwi ask` returns ranked passages instead. |
+| `KIWI_GENERATOR_MODEL` | A LiteLLM model string, hosted or local (`ollama/qwen2.5:7b-instruct`). Enables generated answers and suggested revisions; unset, `kiwi ask` returns ranked passages instead. |
+| `KIWI_GENERATOR_TEMPERATURE` | Sampling temperature for generated answers and suggested revisions. Defaults to 0, so the same question gives the same answer and a measurement can be repeated. |
 | `KIWI_CONTACT_EMAIL` | Contact email sent with Crossref requests, for its polite request pool. |
 | `KIWI_NO_VERIFY` | Disables reference verification. |
-| `KIWI_ALIGNER_MODEL` | Sequence classification model used for claim alignment. Defaults to `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` with an accelerator and the base model of the same family on a CPU. |
-| `KIWI_EMBED_MODEL` | Embedding model. Defaults to `nomic-ai/nomic-embed-text-v1.5`. Changing it requires deleting `.kiwi/` and re-indexing, because stored vectors carry the width of the model that produced them. |
+| `KIWI_ALIGNER_MODEL` | Sequence classification model used for claim alignment, on both scales. Unset, an accelerator uses `dleemiller/finecat-nli-l` for evidence and `MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` for attribution, each being the one measured better for its scale, and a CPU uses `MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli` for both. |
+| `KIWI_EMBED_MODEL` | Embedding model. Defaults to `BAAI/bge-large-en-v1.5`. Changing it requires deleting `.kiwi/` and re-indexing, because stored vectors carry the width of the model that produced them. |
 | `KIWI_INTENT_MODEL` | Citation intent classifier labelled `background`, `method`, and `result`. Unset, every claim is treated as evidence and scored. |
+| `KIWI_RERANK_MODEL` | Cross-encoder that reorders retrieved passages, `BAAI/bge-reranker-v2-m3` being the one measured. Off unless set, because it is a further model download. It improves retrieval on every set measured and needs no re-indexing. |
+| `KIWI_RERANK_DEPTH` | How many retrieved passages the reranker reads. Defaults to 20. |
 | `KIWI_NO_ALIGN` | Disables claim alignment. |
-| `KIWI_CHUNK_TOKENS` | Chunk size target. Defaults to 768. Changing it requires deleting `.kiwi/` and re-indexing, because chunk boundaries move with it. A project indexed under an earlier default keeps its existing chunks until it is re-indexed. |
+| `KIWI_CHUNK_TOKENS` | Chunk size target. Defaults to 512. Changing it requires deleting `.kiwi/` and re-indexing, because chunk boundaries move with it. A project indexed under an earlier default keeps its existing chunks until it is re-indexed. |
 | `KIWI_DEVICE` | Device models run on: `auto` (default), `cuda`, `mps`, or `cpu`. A device that is named but unavailable falls back to the CPU. |
 | `KIWI_AUTHOR` | Identity that operations are recorded against and permissions are checked for. Defaults to `local`. |
 | `KIWI_DATA_DIR` | Overrides where the known-projects registry is stored. |
@@ -173,11 +194,12 @@ Kiwi is a set of substitutable components behind stable interfaces. The CLI, the
 
 | Component | Implementation |
 |---|---|
-| Ingestor | GROBID |
+| Ingestor | GROBID, or the PDF text layer alone with `--text-only` |
 | Chunker | Section-aware: splits along the document's own section boundaries, packing sentence-by-sentence within sections that exceed the token budget |
 | Store | LanceDB, embedded, with native BM25 search |
-| Embedder | sentence-transformers, `nomic-embed-text-v1.5` by default; optional |
+| Embedder | sentence-transformers, `bge-large-en-v1.5` by default; optional |
 | Retriever | BM25 keyword search, or hybrid BM25 and vector search fused by weighted Reciprocal Rank Fusion when an Embedder is configured |
+| Reranker | Cross-encoder reordering the retrieved passages; optional, off unless `KIWI_RERANK_MODEL` is set |
 | Generator | LiteLLM; optional |
 | Resolver | Crossref: identifier resolution, metadata, retraction status |
 | Aligner | Local NLI model scoring a claim against the passage it cites; optional |
@@ -186,6 +208,8 @@ Kiwi is a set of substitutable components behind stable interfaces. The CLI, the
 In the Drafts view, **Check claims** scores every cited sentence and **Check in depth** splits compound claims into their assertions. Each score is shown with the passage it was computed from, so the score can be checked against what was read. A score of 2 is reported without emphasis, a claim the cited work does not establish is stated plainly, and an unsupported claim is flagged. Where the two depths disagree both are shown, and a deep result whose claim has since been edited is marked stale rather than dropped. Citation intent can be set by hand per claim and the setting persists.
 
 On a paper's page, selecting a passage offers Highlight, Note, Copy, Copy citation, and Cite in draft. Annotations carry colour, author, and timestamp, and the panel filters by author. They are stored in `papers/<doc_id>/annotations.json` and carry the same anchor used for citation targets, so they relocate with their passage when a paper is parsed again. The source PDF is never modified.
+
+Relocation is measured rather than assumed. Across 105 recorded quotes in 15 papers, every quote survives a re-parse that moves offsets, and 0.981 survive one that inserts a running head mid-document; the losses are passages a running head landed inside, which are reported as unanchored rather than relocated to the wrong words. See [eval/README.md](eval/README.md).
 
 **Suggest edits** proposes a revision for each claim scored 0, against the evidence passage the score was computed from. A suggestion changes nothing while pending: it is accepted or rejected as written, and both outcomes are recorded beside the draft. Accepting applies the proposed text and reloads the editor. The span is re-resolved against the current draft when the change is applied, so a suggestion survives edits made elsewhere in the document. Suggestions require a Generator, so `KIWI_GENERATOR_MODEL` must be set.
 
@@ -214,11 +238,17 @@ Retrieval quality is measured against a golden set of 50 hand-verified query-pas
 
 | Retrieval mode | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
 |---|---|---|---|---|---|
-| BM25 | 0.740 | 0.920 | 0.920 | 1.000 | 0.834 |
-| Vector | 0.520 | 0.840 | 0.940 | 0.980 | 0.684 |
-| Hybrid (default) | 0.760 | 0.940 | 0.960 | 1.000 | 0.856 |
+| BM25 | 0.720 | 0.900 | 0.920 | 1.000 | 0.818 |
+| Vector | 0.700 | 0.900 | 0.940 | 0.980 | 0.808 |
+| Hybrid (default) | 0.740 | 0.940 | 0.980 | 1.000 | 0.847 |
 
-Hybrid retrieval fuses BM25 and vector rankings by Reciprocal Rank Fusion, weighting BM25 three times over vector, and is the default whenever an Embedder is configured. See [eval/README.md](eval/README.md) for the corpus, method, and full results.
+On a held-out corpus of ten papers across five other fields, hybrid retrieval reaches Recall@1 0.559 and MRR 0.710, against 0.711 for BM25 alone. Retrieval is the measurement that transfers least well: it loses 14 points of MRR on papers from fields the settings were not chosen against, where alignment loses none.
+
+Hybrid retrieval fuses BM25 and vector rankings by Reciprocal Rank Fusion, weighting BM25 five times over vector, and is the default whenever an Embedder is configured. A question naming a figure or a table promotes captioned passages, which raises Recall@1 on figure-directed queries without changing prose retrieval.
+
+That weighting suits the task Kiwi does: a question about papers the reader already has, naming a method or a metric that appears verbatim in the passage answering it. It does not transfer to matching a claim against an abstract, where wording need not be shared. On SciFact, corpus-wide retrieval over 5183 abstracts reaches Recall@1 0.567 and MRR 0.668, and the opposite weighting would reach 0.633 and 0.716 there while costing up to 0.155 MRR on figure-directed queries here.
+
+Setting `KIWI_RERANK_MODEL` reorders the retrieved passages with a cross-encoder and improves retrieval on every set measured, by more than any other change: Recall@1 rises from 0.740 to 0.940 on the tuning corpus and from 0.559 to 0.824 on the held-out one, which closes most of the transfer gap above. Direct-claim alignment improves with it and attribution does not move. It is off by default because it is a further model download, and because on hedged prose it raises false endorsement on the tuning set from 0.062 to 0.125 while improving accuracy. See [eval/README.md](eval/README.md) for the corpus, method, and full results.
 
 ```bash
 uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden.json
@@ -230,16 +260,26 @@ Alignment scoring is measured against 47 labelled claim-citation pairs written a
 
 | | Accuracy | Recall 2 | Recall 1 | Recall 0 | False endorsement | Missed support |
 |---|---|---|---|---|---|---|
-| `DeBERTa-v3-large-mnli-fever-anli-ling-wanli` (accelerator) | 0.894 | 0.917 | 0.700 | 1.000 | 0.000 | 0.083 |
+| `finecat-nli-l` (accelerator) | 0.872 | 0.875 | 0.700 | 0.846 | 0.000 | 0.125 |
 | `DeBERTa-v3-base-mnli-fever-anli` (CPU) | 0.809 | 0.875 | 0.800 | 0.692 | 0.000 | 0.125 |
 
 False endorsement is the share of unsupported claims scored 2. A score of 2 is shown without a warning, so a false endorsement leaves an unsupported claim unmarked. The default model is the one that produces none on this set.
 
-Five passages are retrieved per claim. The one scored is the passage the model is least neutral about, and a score of 2 additionally requires the highest-ranked passage to agree. Chunk size was swept against both the golden set and the labelled claim sets; 768 tokens is the measured target and `KIWI_CHUNK_TOKENS` overrides it.
+Five passages are retrieved per claim. The one scored is the passage the model is least neutral about, and a score of 2 additionally requires the highest-ranked passage to agree. Chunk size was swept against both the golden set and the labelled claim sets, and re-checked against a held-out corpus; 512 tokens is the measured target and `KIWI_CHUNK_TOKENS` overrides it.
 
-`kiwi align --deep` splits a compound claim into its assertions and scores each against evidence retrieved for it. A second set of 24 compound and hedged claims scores 0.708, well below the direct claims. See [eval/README.md](eval/README.md) for the measurements behind these rules and for where the scoring is weakest.
+`kiwi align --deep` splits a compound claim into its assertions and scores each against evidence retrieved for it. A second set of 24 compound and hedged claims scores 0.667, below the direct claims, and a held-out set of 22 such claims scores 0.818. See [eval/README.md](eval/README.md) for the measurements behind these rules and for where the scoring is weakest.
 
-Attribution is scored on a separate binary scale and measured against 17 further pairs: accuracy 0.824, with 2 of 11 claims wrongly credited. Entailment does not separate using a technique from originating it, so a claim naming a method the paper merely applies can be credited to it. See [eval/README.md](eval/README.md).
+Attribution is scored on a separate binary scale, and two rules apply before a claim is scored. It is judged only against passages in which the cited authors claim authorship of something, because entailment does not otherwise separate using a technique from originating it. It is then restated in those authors' voice, because the phrase naming them ("the cited authors") appears nowhere in their own passage and leaves the model nothing to bind it to. Accuracy is 0.882 against 17 pairs and 1.000 against 14 held-out pairs, where restating raises recall of genuine originations from 0.500 to 1.000.
+
+On the held-out corpus, alignment reaches 0.917 accuracy with no false endorsement.
+
+Both sets above were written for this project. Against [SciFact](https://github.com/allenai/scifact), an expert-annotated benchmark of 1259 claim-citation pairs over 5183 abstracts, alignment reaches 0.860 accuracy with 0.015 false endorsement and 0.868 contradiction recall. Those are the figures to weigh, being the only ones whose labels this project did not produce.
+
+A larger attribution set derived from the same corpus, 232 pairs including 116 works that did not originate what the claim names, puts false attribution at 0.078. The 21 negatives written for this project report 0.000, which says more about those 21 than about the scale. Read 0.078 as the rate to expect, and 0.534 as how often a genuine origination is recognised.
+
+Attribution is the weakest scale that ships, so a credit on it is never shown silently: the web interface marks it approximate and `kiwi align` prints a caution.
+
+Generated answers are measured the same way, against the passages they were built from. With a local `qwen2.5:7b-instruct`, 0.625 of what an answer asserts is supported by the passage it cites and none of it is contradicted by that passage, on the tuning corpus and the held-out one alike. About a third carries no reference at all, which is the weak figure: the panel shows the passages beside the answer, but the answer does not always point at them. See [eval/README.md](eval/README.md).
 
 ```bash
 uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/alignment.json

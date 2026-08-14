@@ -34,3 +34,12 @@ eval/workspace.kiwi/
 .env
 .env.*
 !.env.example
+
+# Held-out eval workspace, regenerate with:
+#   kiwi ingest eval/corpus-heldout --project eval/heldout.kiwi
+eval/heldout.kiwi/
+
+# SciFact benchmark data and index, fetch with:
+#   uv run python eval/_scifact.py --download
+eval/scifact/
+eval/scifact-index/

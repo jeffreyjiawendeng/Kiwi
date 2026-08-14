@@ -42,7 +42,9 @@ from kiwi.review import (
     record_decision,
     review_draft,
     review_satisfied,
+    verify_cited_work,
 )
+from kiwi.setup import load_env
 from kiwi.suggestions import SuggestionNotApplicable, SuggestionNotFound
 from kiwi.types import AnnotationKind, Depth, Json, Suggestion
 from kiwi.workspace import (
@@ -74,6 +76,10 @@ from kiwi.workspace import (
     write_note,
     write_settings,
 )
+
+# Settings written by `kiwi setup` are read before the components are
+# built, so the API and the CLI are configured the same way.
+load_env()
 
 app = FastAPI(title="Kiwi", version=__version__)
 
@@ -196,6 +202,17 @@ def list_projects() -> Json:
     return {"projects": list_known_projects()}
 
 
+@app.get("/projects/default")
+def default_project_path() -> Json:
+    """Somewhere sensible to put a first project.
+
+    A browser cannot report an absolute path from a folder picker, so the
+    launcher asks for one to be typed. This supplies the answer for the
+    common case, which is the first run.
+    """
+    return {"path": str(Path.home() / "Kiwi" / "MyProject.kiwi")}
+
+
 @app.post("/projects")
 def open_project(request: OpenProjectRequest) -> Json:
     """Open (creating if necessary) a project at ``path`` and register it."""
@@ -255,24 +272,42 @@ def put_draft(relpath: str, request: PageWriteRequest) -> Json:
 
 
 @app.post("/ingest")
-async def ingest(file: UploadFile, project: str = Form("workspace.kiwi")) -> Json:
+async def ingest(
+    file: UploadFile,
+    project: str = Form("workspace.kiwi"),
+    text_only: bool = Form(False),
+) -> Json:
     """Parse an uploaded PDF and write it into ``project``.
 
     ``project`` must be declared as a Form field explicitly. A bare
     ``str`` parameter resolves from the query string, or from its
     default, even where a sibling parameter is an ``UploadFile``.
+
+    ``text_only`` reads the PDF's own text layer instead of GROBID,
+    finding no sections and no references. The paper keeps the same
+    identifier either way, so parsing it again through GROBID later
+    replaces it in place.
     """
-    ingestor = default_ingestor()
-    health_check = ingestor.health()
-    if not health_check.ok:
-        raise HTTPException(status_code=503, detail=f"GROBID unavailable: {health_check.detail}")
+    ingestor: object
+    if text_only:
+        from kiwi.components.ingest.pdf import PdfIngestor
 
-    suffix = Path(file.filename or "upload.pdf").suffix or ".pdf"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = Path(tmp.name)
+        ingestor = PdfIngestor()
+    else:
+        ingestor = default_ingestor()
+        health_check = ingestor.health()
+        if not health_check.ok:
+            raise HTTPException(
+                status_code=503, detail=f"GROBID unavailable: {health_check.detail}"
+            )
 
-    try:
+    # The upload is written under its own name: a parser with no title to
+    # read falls back to the filename, and a temporary one is not a title.
+    uploaded = Path(file.filename or "upload.pdf").name
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir) / (uploaded if uploaded.lower().endswith(".pdf") else "upload.pdf")
+        tmp_path.write_bytes(await file.read())
+
         try:
             document = ingestor.ingest(tmp_path)
         except IngestError as exc:
@@ -280,12 +315,11 @@ async def ingest(file: UploadFile, project: str = Form("workspace.kiwi")) -> Jso
 
         project_root = init_project(Path(project), name=Path(project).stem)
         paper_dir = write_document(project_root, document, tmp_path)
-    finally:
-        tmp_path.unlink(missing_ok=True)
 
     return {
         "document_id": document.document_id,
         "paper_dir": str(paper_dir),
+        "parser": document.parser,
         "metadata": document.metadata,
         "sections": [section_to_dict(s) for s in document.sections],
         "references": [reference_to_dict(r) for r in document.references],
@@ -337,6 +371,7 @@ def verify_papers(request: VerifyRequest) -> Json:
         raise HTTPException(status_code=404, detail="no papers to verify")
 
     verified: Json = {}
+    sources: Json = {}
     for doc_id in doc_ids:
         try:
             document = read_document(project_root, doc_id)
@@ -344,8 +379,9 @@ def verify_papers(request: VerifyRequest) -> Json:
             raise HTTPException(status_code=404, detail=f"paper not found: {doc_id}") from exc
         results = verify_document(project_root, document)
         verified[doc_id] = [resolved_reference_to_dict(r) for r in results]
+        sources[doc_id] = verify_cited_work(project_root, doc_id)
 
-    return {"verified": verified}
+    return {"verified": verified, "sources": sources}
 
 
 @app.post("/align")

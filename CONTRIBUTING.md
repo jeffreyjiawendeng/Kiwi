@@ -11,7 +11,9 @@ The suite must pass on a clean checkout with no external services running. Tests
 
 ## GROBID
 
-Ingestion needs a running GROBID service.
+`uv run kiwi setup` reports which capabilities this machine has, what each missing one costs and buys, and writes the chosen settings to `.env`. `--non-interactive` reports without asking, which is what to run in CI.
+
+Ingestion needs a running GROBID service. `kiwi ingest --text-only` reads the PDF's text layer instead, which needs no service but finds no sections and no references; every figure in `eval/README.md` was measured on GROBID's output.
 
 ```bash
 docker run --rm -p 8070:8070 -e JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport lfoppiano/grobid:0.8.1
@@ -33,12 +35,44 @@ See `eval/README.md` for the corpus, golden set, and current results.
 uv run kiwi ingest eval/corpus --project eval/workspace.kiwi   # needs GROBID running
 uv run kiwi index eval/workspace.kiwi
 uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden.json
+uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden-figures.json
 uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/alignment.json
 uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/alignment-hedged.json
 uv run kiwi evaluate-alignment eval/workspace.kiwi --labelled eval/attribution.json --intent attribution
 ```
 
+SciFact, an expert-annotated benchmark of 1259 claim-citation pairs over 5183 abstracts, is the check that these figures are not a property of this project's annotator:
+
+```bash
+uv run python eval/_scifact.py --download
+uv run python eval/_scifact.py
+uv run python eval/_scifact.py --retrieval
+uv run python eval/_scifact.py --attribution
+```
+
 `alignment.json` holds direct claims, `alignment-hedged.json` holds compound and hedged claims of the kind found in published work, and `attribution.json` holds claims scored on the binary attribution scale. Report all three when changing the Aligner or the passage selection rule.
+
+Generated answers are measured against the passages they were built from. Run it when changing the Generator, its prompt, or retrieval:
+
+```bash
+KIWI_GENERATOR_MODEL=ollama/qwen2.5:7b-instruct \
+    uv run python eval/_answers.py --project eval/workspace.kiwi --golden eval/golden.json
+```
+
+Anchor durability is measured separately, and is what keeps a citation, an annotation, or an evidence passage pointing at the right words after a paper is parsed again. Run it when changing `kiwi.anchor` or the Ingestor:
+
+```bash
+uv run python eval/_anchors.py
+uv run python eval/_anchors.py --across-parsers
+```
+
+Reranking is off unless `KIWI_RERANK_MODEL` is set. Report figures both ways when changing retrieval, because the two paths order passages differently:
+
+```bash
+KIWI_RERANK_MODEL=BAAI/bge-reranker-v2-m3 uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden.json
+```
+
+Report `--attribution` as well when changing anything on the attribution scale. The sets written for this project hold 21 negatives between them, too few to show a change that credits the wrong paper more often; the derived set holds 116.
 
 ## GPU
 
@@ -47,6 +81,10 @@ Embedding and alignment run on a GPU when one is present. See the README for ins
 Retrieval results do not depend on the device. Alignment uses a larger model where an accelerator is present, so its scores do. Set `KIWI_DEVICE=cpu` to check behavior without a GPU.
 
 A model that does not fit in the free memory of the accelerator, with headroom left for the rest of the machine, stays on the CPU rather than being loaded.
+
+## Ingestion
+
+GROBID's full-text endpoint can place a component DOI in the TEI header, so a paper's DOI arrives as its first figure's (`10.1371/journal.pone.0022557.g001`). `_article_doi` reduces a component DOI to the article it belongs to. Storing the component would give the paper a DOI resolving to a figure, which then reports as a metadata mismatch against Crossref.
 
 ## Annotations
 

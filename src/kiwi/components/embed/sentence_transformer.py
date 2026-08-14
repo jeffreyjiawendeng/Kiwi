@@ -16,7 +16,7 @@ from kiwi.types import Health, Vector
 if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
-DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
+DEFAULT_MODEL = "BAAI/bge-large-en-v1.5"
 
 # Asymmetric models want different instruction prefixes on documents and
 # queries, which is why embed() and embed_query() are separate methods on

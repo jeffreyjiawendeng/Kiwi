@@ -23,6 +23,7 @@ from kiwi.protocols import (
     Embedder,
     Generator,
     Ingestor,
+    Reranker,
     Resolver,
     Retriever,
     Store,
@@ -35,6 +36,7 @@ __all__ = [
     "default_embedder",
     "default_generator",
     "default_ingestor",
+    "default_reranker",
     "default_resolver",
     "default_retriever",
     "default_store",
@@ -44,6 +46,7 @@ __all__ = [
 
 _embedder: Embedder | None = None
 _aligner: Aligner | None = None
+_reranker: Reranker | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,7 @@ class ComponentSet:
     store: Store
     embedder: Embedder | None = None
     retriever: Retriever | None = None
+    reranker: Reranker | None = None
     generator: Generator | None = None
     resolver: Resolver | None = None
     aligner: Aligner | None = None
@@ -99,8 +103,32 @@ def default_embedder() -> Embedder | None:
     return _embedder
 
 
+def default_reranker() -> Reranker | None:
+    """``None`` unless ``KIWI_RERANK_MODEL`` names a model.
+
+    Reranking improves retrieval on every set it was measured against,
+    and costs a further model download on top of the embedder, so it is
+    asked for rather than assumed. See eval/README.md.
+
+    The instance is reused across calls, for the same reason the Embedder
+    is: building one per query reloads the model.
+    """
+    global _reranker
+    if not os.environ.get("KIWI_RERANK_MODEL"):
+        return None
+    try:
+        import sentence_transformers  # noqa: F401
+    except ImportError:
+        return None
+    if _reranker is None:
+        from kiwi.components.rerank.cross_encoder import CrossEncoderReranker
+
+        _reranker = CrossEncoderReranker()
+    return _reranker
+
+
 def default_retriever(store: Store, embedder: Embedder | None) -> DefaultRetriever:
-    return DefaultRetriever(store, embedder=embedder)
+    return DefaultRetriever(store, embedder=embedder, reranker=default_reranker())
 
 
 def default_generator() -> Generator | None:

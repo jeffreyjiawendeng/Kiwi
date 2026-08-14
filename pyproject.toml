@@ -1,6 +1,6 @@
 [project]
 name = "kiwi"
-version = "1.4.0"
+version = "1.5.0"
 description = "An open research workspace with verifiable retrieval"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,6 +14,7 @@ dependencies = [
     "httpx>=0.28",
     "platformdirs>=4.3",
     "python-multipart>=0.0.20",
+    "pypdf>=5.1",
     "pyyaml>=6.0",
 ]
 

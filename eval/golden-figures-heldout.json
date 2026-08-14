@@ -1,0 +1,104 @@
+{
+  "field": "ecology and archaeology, figures",
+  "pairs": [
+    {
+      "query": "Which figure gives the general structure of the model?",
+      "document_id": "doc_1d5f4f1059ada45d",
+      "anchor": {
+        "start": 50666,
+        "end": 50704,
+        "exact": "Fig 1. General structure of the model.",
+        "prefix": " management strategies. Figure: ",
+        "suffix": " Outlined cells indicate modelle"
+      }
+    },
+    {
+      "query": "Is there a schematic of the dual phase locust population dynamics?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 57830,
+        "end": 57900,
+        "exact": "Fig 1. Desert locust dual phase population dynamics schematic diagram.",
+        "prefix": " management strategies. Figure: ",
+        "suffix": " Figure: Fig 3 illustrates the s"
+      }
+    },
+    {
+      "query": "Which figure profiles the temperature-dependent egg hatching rate?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 58351,
+        "end": 58432,
+        "exact": "Fig 3. Profile of temperature-dependent desert locust egg hatching rate (1/days).",
+        "prefix": "using the function (7). Figure: ",
+        "suffix": " Figure: Fig 4 depicts the propo"
+      }
+    },
+    {
+      "query": "Which figure shows adult mortality for solitarious and gregarious locusts?",
+      "document_id": "doc_5406a82913e2b273",
+      "anchor": {
+        "start": 60018,
+        "end": 60101,
+        "exact": "Fig 7. Profile of solitarious and gregarious temperature dependent adult mortality.",
+        "prefix": "ion of air temperature. Figure: ",
+        "suffix": " Figure: Fig 8. Partial rank cor"
+      }
+    },
+    {
+      "query": "Which figure maps the study area and dialect groups?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 28038,
+        "end": 28109,
+        "exact": "Fig 1. Study area and ethnohistoric dialect groups (adapted from [26]).",
+        "prefix": "unter-gatherer-fishers. Figure: ",
+        "suffix": " Figure: Fig 2. Salish Sea Holoc"
+      }
+    },
+    {
+      "query": "Is there a figure of Holocene population estimates?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 28118,
+        "end": 28166,
+        "exact": "Fig 2. Salish Sea Holocene population estimates.",
+        "prefix": "ps (adapted from [26]). Figure: ",
+        "suffix": " Solid Line-Ames and Maschner [5"
+      }
+    },
+    {
+      "query": "Which figure classifies the examined sites by region?",
+      "document_id": "doc_bfa67f9cb55f2991",
+      "anchor": {
+        "start": 28334,
+        "end": 28384,
+        "exact": "Fig 3. Examined sites and regional classification.",
+        "prefix": "d from Rorabaugh [64]). Figure: ",
+        "suffix": " Figure: Fig 4. San Juan Island "
+      }
+    },
+    {
+      "query": "Which figure traces ticks through developmental stages?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 38460,
+        "end": 38534,
+        "exact": "Fig 1. Flow of ticks through different developmental stages and infection.",
+        "prefix": "d predict disease risk. Figure: ",
+        "suffix": " The structure and flow of the t"
+      }
+    },
+    {
+      "query": "Is there a figure comparing model output with and without mouse dynamics?",
+      "document_id": "doc_da7b21af8865544b",
+      "anchor": {
+        "start": 38913,
+        "end": 38997,
+        "exact": "Fig 2. Sample time series of model output with or without mouse population dynamics.",
+        "prefix": "on of uninfected ticks. Figure: ",
+        "suffix": " Data from two simulation runs a"
+      }
+    }
+  ]
+}

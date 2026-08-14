@@ -88,6 +88,11 @@ class Retriever(Component, Protocol):
 
 
 @runtime_checkable
+class Reranker(Component, Protocol):
+    def rerank(self, query: str, hits: Sequence[Hit], k: int) -> list[Hit]: ...
+
+
+@runtime_checkable
 class Generator(Component, Protocol):
     def generate(self, query: str, passages: Sequence[Hit]) -> Answer: ...
 

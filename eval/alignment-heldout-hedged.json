@@ -1,0 +1,114 @@
+{
+  "pairs": [
+    {
+      "claim": "Roughly a quarter of a million unowned cats live in UK towns and cities.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 2
+    },
+    {
+      "claim": "Owned cat numbers have been broadly stable over roughly the past decade.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 2
+    },
+    {
+      "claim": "Desert locusts live for somewhere between three and five months.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 2
+    },
+    {
+      "claim": "Locust eggs usually hatch in about a fortnight, though this varies widely.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 2
+    },
+    {
+      "claim": "The simulations covered about five decades.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 2
+    },
+    {
+      "claim": "Weather data came from a couple of dozen sites across North America.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 2
+    },
+    {
+      "claim": "Northwest Coast groups moved residence a handful of times each year.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 2
+    },
+    {
+      "claim": "Close to a million unowned cats live in UK towns and cities.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "Desert locusts live for well over a year.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "Locust eggs hatch within a couple of days almost regardless of temperature.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "The simulations covered only a handful of weeks.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "Northwest Coast groups moved residence dozens of times each year.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 0
+    },
+    {
+      "claim": "Desert locusts live between 90 and 150 days, and their eggs typically incubate for around two weeks.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 2
+    },
+    {
+      "claim": "Adult cats were defined as those aged one to eleven years, and senior cats as those eleven and older.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 2
+    },
+    {
+      "claim": "Simulations ran for 50 years, and disease risk was read from the final ten years of each run.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 2
+    },
+    {
+      "claim": "Desert locusts live between 90 and 150 days, though their eggs hatch within 48 hours.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "Adult cats were defined as those aged one to eleven years, and the owned population has fallen sharply.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "Simulations ran for 50 years, and weather data were drawn from a single European site.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "Unowned cat numbers are likely to fall over the coming decade.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 1
+    },
+    {
+      "claim": "Warming is likely to make locust outbreaks substantially more frequent.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 1
+    },
+    {
+      "claim": "Reducing small mammal populations would probably lower human infection rates.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 1
+    },
+    {
+      "claim": "Settlement patterns were probably shaped mainly by shellfish availability.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 1
+    }
+  ]
+}

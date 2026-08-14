@@ -1,0 +1,244 @@
+{
+  "pairs": [
+    {
+      "claim": "An estimated 250,000 unowned cats live in UK towns and cities.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 2
+    },
+    {
+      "claim": "Adult cats were defined as those from one year up to eleven years old.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 2
+    },
+    {
+      "claim": "The carrying capacity of owned cats was set about 10 percent above the starting population.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 2
+    },
+    {
+      "claim": "Fewer than ten thousand unowned cats live in UK towns and cities.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "Senior cats were defined as those under five years old.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "The owned-cat population has fallen sharply over the past decade.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 0
+    },
+    {
+      "claim": "Neutering programmes are the most effective way to control unowned cat numbers.",
+      "citation": "doc_1d5f4f1059ada45d",
+      "label": 1
+    },
+    {
+      "claim": "Desert locusts live between 90 and 150 days.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 2
+    },
+    {
+      "claim": "Locust egg incubation typically lasts around two weeks.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 2
+    },
+    {
+      "claim": "Lower temperatures prolong the incubation period of locust eggs.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 2
+    },
+    {
+      "claim": "Desert locusts live for several years.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "Egg incubation is unaffected by temperature.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "Solitarious nymphs develop in under a week.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 0
+    },
+    {
+      "claim": "Aerial pesticide spraying is the most effective control for locust swarms.",
+      "citation": "doc_5406a82913e2b273",
+      "label": 1
+    },
+    {
+      "claim": "Each simulation was run for 50 years with a 52-week time step.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 2
+    },
+    {
+      "claim": "Temperature and precipitation data were taken from 22 North American sites.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 2
+    },
+    {
+      "claim": "The simulations were run for only a single year.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "Weather data were collected from a single European site.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 0
+    },
+    {
+      "claim": "Culling deer reduces human Lyme disease incidence.",
+      "citation": "doc_da7b21af8865544b",
+      "label": 1
+    },
+    {
+      "claim": "Two to four residential moves per year were typical for many Northwest Coast groups.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 2
+    },
+    {
+      "claim": "Kernel Density Estimation was used to account for smaller sample sizes.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 2
+    },
+    {
+      "claim": "Northwest Coast groups were fully sedentary and did not move residence.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 0
+    },
+    {
+      "claim": "Winter villages dispersed into smaller household groups in spring and summer.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 2
+    },
+    {
+      "claim": "Population growth in the Salish Sea was driven primarily by salmon intensification.",
+      "citation": "doc_bfa67f9cb55f2991",
+      "label": 1
+    },
+    {
+      "claim": "The choice task comprised 54 trials split across two runs.",
+      "citation": "doc_29269553c9cff8fe",
+      "label": 2
+    },
+    {
+      "claim": "Mean reaction time was around 830 milliseconds.",
+      "citation": "doc_29269553c9cff8fe",
+      "label": 2
+    },
+    {
+      "claim": "The task comprised several thousand trials.",
+      "citation": "doc_29269553c9cff8fe",
+      "label": 0
+    },
+    {
+      "claim": "Reaction times averaged under 100 milliseconds.",
+      "citation": "doc_29269553c9cff8fe",
+      "label": 0
+    },
+    {
+      "claim": "Reaction time is a reliable index of decision confidence.",
+      "citation": "doc_29269553c9cff8fe",
+      "label": 1
+    },
+    {
+      "claim": "Fifteen participants took part in the ADHD group of Experiment 1.",
+      "citation": "doc_3e6b2f8c52dbefb5",
+      "label": 2
+    },
+    {
+      "claim": "Each trial opened with a fixation point shown for 750 milliseconds.",
+      "citation": "doc_3e6b2f8c52dbefb5",
+      "label": 2
+    },
+    {
+      "claim": "Both groups contained more than fifty participants.",
+      "citation": "doc_3e6b2f8c52dbefb5",
+      "label": 0
+    },
+    {
+      "claim": "Stimulant medication improved task performance in the ADHD group.",
+      "citation": "doc_3e6b2f8c52dbefb5",
+      "label": 1
+    },
+    {
+      "claim": "Data from 113 participants were analysed after exclusions.",
+      "citation": "doc_460c469507617351",
+      "label": 2
+    },
+    {
+      "claim": "The memory template was displayed for 1500 milliseconds.",
+      "citation": "doc_460c469507617351",
+      "label": 2
+    },
+    {
+      "claim": "Each participant completed 192 trials.",
+      "citation": "doc_460c469507617351",
+      "label": 2
+    },
+    {
+      "claim": "Fewer than twenty participants remained after exclusions.",
+      "citation": "doc_460c469507617351",
+      "label": 0
+    },
+    {
+      "claim": "The memory template was shown for under a tenth of a second.",
+      "citation": "doc_460c469507617351",
+      "label": 0
+    },
+    {
+      "claim": "The trial recruited 603 participants who were randomly assigned.",
+      "citation": "doc_c2a364b85f3ef87b",
+      "label": 2
+    },
+    {
+      "claim": "The trial recruited fewer than fifty participants.",
+      "citation": "doc_c2a364b85f3ef87b",
+      "label": 0
+    },
+    {
+      "claim": "Disclosing uncertainty increases long-term trust in public health bodies.",
+      "citation": "doc_c2a364b85f3ef87b",
+      "label": 1
+    },
+    {
+      "claim": "The review covered 15 studies and 4,450 participants.",
+      "citation": "doc_de51caac0247ec3c",
+      "label": 2
+    },
+    {
+      "claim": "The review covered a single study of fewer than 100 participants.",
+      "citation": "doc_de51caac0247ec3c",
+      "label": 0
+    },
+    {
+      "claim": "Acamprosate is more effective than naltrexone for alcohol dependence.",
+      "citation": "doc_de51caac0247ec3c",
+      "label": 1
+    },
+    {
+      "claim": "Roughly 45 percent of participants sought help during follow-up.",
+      "citation": "doc_dfb757e471c8a50d",
+      "label": 2
+    },
+    {
+      "claim": "About 37 percent of participants reported visiting their GP.",
+      "citation": "doc_dfb757e471c8a50d",
+      "label": 2
+    },
+    {
+      "claim": "Almost every participant visited a health professional during follow-up.",
+      "citation": "doc_dfb757e471c8a50d",
+      "label": 0
+    },
+    {
+      "claim": "Personalised video stories are more effective than written advice.",
+      "citation": "doc_dfb757e471c8a50d",
+      "label": 1
+    }
+  ]
+}

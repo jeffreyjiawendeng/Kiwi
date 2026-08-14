@@ -147,3 +147,84 @@ def test_load_golden_set_tolerates_missing_prefix_suffix(tmp_path: Path) -> None
     pairs = load_golden_set(path)
     assert pairs[0].prefix == ""
     assert pairs[0].suffix == ""
+
+
+def test_the_figure_golden_set_is_well_formed() -> None:
+    from pathlib import Path
+
+    from kiwi.evaluation import load_golden_set
+
+    pairs = load_golden_set(Path("eval/golden-figures.json"))
+    assert len(pairs) >= 10
+    assert all(p.document_id.startswith("doc_") for p in pairs)
+    assert all(p.exact.strip() for p in pairs)
+    # A caption that still carries its component identifier would be
+    # measuring the identifier rather than what the caption says.
+    assert not any("doi.org" in p.exact for p in pairs)
+
+
+def test_the_held_out_sets_are_well_formed() -> None:
+    from pathlib import Path
+
+    from kiwi.evaluation import load_alignment_set, load_golden_set
+
+    golden = load_golden_set(Path("eval/golden-heldout.json"))
+    assert len(golden) >= 20
+    assert all(p.exact.strip() for p in golden)
+
+    claims = load_alignment_set(Path("eval/alignment-heldout.json"))
+    assert len(claims) >= 20
+    # All three scores must be present, or the set cannot show a failure
+    # mode that the tuning corpus does not.
+    assert {p.label for p in claims} == {0, 1, 2}
+
+
+def test_the_held_out_corpus_is_a_different_field() -> None:
+    from pathlib import Path
+
+    from kiwi.evaluation import load_golden_set
+
+    tuning = {p.document_id for p in load_golden_set(Path("eval/golden.json"))}
+    heldout = {p.document_id for p in load_golden_set(Path("eval/golden-heldout.json"))}
+    assert not tuning & heldout, "a held-out paper also appears in the tuning corpus"
+
+
+def test_the_held_out_hedged_and_attribution_sets_are_well_formed() -> None:
+    from pathlib import Path
+
+    from kiwi.evaluation import load_alignment_set
+
+    hedged = load_alignment_set(Path("eval/alignment-heldout-hedged.json"))
+    assert len(hedged) >= 20
+    assert {p.label for p in hedged} == {0, 1, 2}
+
+    attribution = load_alignment_set(Path("eval/attribution-heldout.json"))
+    assert len(attribution) >= 12
+    assert {p.label for p in attribution} == {0, 1}
+    # The zero cases are what the scale exists to catch, so they must
+    # outnumber the originations rather than be a token few.
+    assert sum(1 for p in attribution if p.label == 0) > sum(1 for p in attribution if p.label == 1)
+
+
+def test_the_held_out_figure_set_is_well_formed() -> None:
+    from pathlib import Path
+
+    from kiwi.evaluation import load_golden_set
+
+    pairs = load_golden_set(Path("eval/golden-figures-heldout.json"))
+    assert len(pairs) >= 8
+    assert all(p.exact.strip() for p in pairs)
+    assert not any("doi.org" in p.exact for p in pairs)
+
+
+def test_the_held_out_corpus_spans_several_papers() -> None:
+    from pathlib import Path
+
+    from kiwi.evaluation import load_alignment_set, load_golden_set
+
+    golden = load_golden_set(Path("eval/golden-heldout.json"))
+    claims = load_alignment_set(Path("eval/alignment-heldout.json"))
+    # A set drawn from one or two papers measures those papers, not the
+    # system, so both sets must reach across the corpus.
+    assert len({p.document_id for p in golden}) >= 8
+    assert len({p.citation for p in claims}) >= 8

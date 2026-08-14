@@ -13,6 +13,7 @@ evidence and scored, and intent is set by hand.
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -34,12 +35,82 @@ DEFAULT_MODEL = "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
 # The larger model detects contradictions markedly better and is slow
 # enough on a CPU to be impractical there, so it is the default only
 # where an accelerator is present. See eval/README.md.
-DEFAULT_GPU_MODEL = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+DEFAULT_GPU_MODEL = "dleemiller/finecat-nli-l"
+
+# Attribution asks whether a work originated something, which is a
+# different question from whether a passage supports a claim, and the two
+# are measured separately. The model that reads evidence best is not the
+# one that reads attribution best, so each scale uses the one measured
+# better for it. See eval/README.md.
+ATTRIBUTION_MODEL = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
 
 # A supporting score needs this much probability mass on entailment, from
 # both the scored passage and the highest-ranked one. Reporting support on
 # a weak margin is the error that reaches the reader unmarked.
 SUPPORT_CONFIDENCE = 0.70
+
+# A work that originated something says so. Entailment does not separate
+# describing a method from introducing it, so a passage that merely uses a
+# technique entails a claim about that technique and credits the wrong
+# paper. Attribution is judged only against passages where the authors
+# claim authorship of something. See eval/README.md.
+_NOVELTY = re.compile(
+    r"\b(?:we|this (?:paper|work|study|article))\s+"
+    r"(?:propose|proposes|proposed|present|presents|presented|introduce|introduces|introduced|"
+    r"develop|develops|developed|design|designs|designed|contribute|contributes|contributed)\b"
+    r"|\bour (?:approach|method|algorithm|model|contribution|proposal|framework|scheme)\b"
+    r"|\bin this (?:paper|work|study)\b",
+    re.IGNORECASE,
+)
+
+# An attribution claim names the cited work from outside it, as "the
+# cited authors" or "this work". No passage uses that phrasing about
+# itself, so the model has nothing to bind the referent to and reports
+# neutral however plainly the passage claims the work. The claim is
+# restated as the sentence the cited authors would have written, which
+# leaves the model the question that matters: whether the work they
+# claim is the one the claim names. See eval/README.md.
+_REFERENT = r"(?:the cited (?:authors?|work|paper|study|article)|this (?:work|paper|study))"
+
+# Past participles restated in the present tense a contribution sentence
+# is written in. A verb that does not name an act of origination maps to
+# the nearest one that does.
+_PRESENT_TENSE = {
+    "introduced": "introduce",
+    "proposed": "propose",
+    "presented": "present",
+    "developed": "develop",
+    "designed": "design",
+    "produced": "produce",
+    "created": "create",
+    "devised": "devise",
+    "originated": "introduce",
+    "originates": "introduce",
+    "contributed": "contribute",
+    "formulated": "formulate",
+    "invented": "introduce",
+    "due": "introduce",
+    "described": "describe",
+    "reported": "report",
+    "established": "establish",
+    "demonstrated": "demonstrate",
+    "defined": "define",
+    "discovered": "discover",
+    "derived": "derive",
+}
+
+# "First described in the cited work" is a claim about who was first.
+# Restating it as "we describe it" drops the priority and leaves a claim
+# that every paper mentioning the thing satisfies. A claim marked for
+# priority is scored as written. See eval/README.md.
+_ATTRIBUTION_FRAME = re.compile(
+    r"[,\s]+(?:(?:was|were|is|are)\s+)?(?P<priority>first\s+|originally\s+)?"
+    r"(?P<verb>" + "|".join(sorted(_PRESENT_TENSE)) + r")\s+"
+    r"(?:by|with|in|to|from)\s+" + _REFERENT + r"\s*\.?\s*$",
+    re.IGNORECASE,
+)
+
+_LEADING_ARTICLE = re.compile(r"^(?:The|A|An)\s")
 
 _MAX_TOKENS = 512
 
@@ -71,7 +142,12 @@ class NLIAligner:
         configured = model_name or os.environ.get("KIWI_ALIGNER_MODEL")
         self.model_name = configured or (DEFAULT_MODEL if self.device == CPU else DEFAULT_GPU_MODEL)
         self.intent_model_name = intent_model_name or os.environ.get("KIWI_INTENT_MODEL", "")
+        self.attribution_model_name = configured or (
+            ATTRIBUTION_MODEL if self.device != CPU else DEFAULT_MODEL
+        )
         self._model: PreTrainedModel | None = None
+        self._attribution_model: PreTrainedModel | None = None
+        self._attribution_tokenizer: PreTrainedTokenizerBase | None = None
         self._tokenizer: PreTrainedTokenizerBase | None = None
         self._intent_model: PreTrainedModel | None = None
         self._intent_tokenizer: PreTrainedTokenizerBase | None = None
@@ -81,7 +157,10 @@ class NLIAligner:
             self._load()
         except Exception as exc:
             return Health(ok=False, detail=str(exc))
-        return Health(ok=True, detail=f"{self.model_name} on {describe_device(self.device)}")
+        return Health(
+            ok=True,
+            detail=f"{self.model_name} on {describe_device(self.device)}",
+        )
 
     def detect_intent(self, claim: str, context: str) -> Intent:
         """Classify why a work is cited.
@@ -103,6 +182,14 @@ class NLIAligner:
         self, claim: str, intent: Intent, evidence: Sequence[Chunk], depth: Depth
     ) -> Alignment:
         """Score ``claim`` against ``evidence``.
+
+        Attribution is judged only against passages in which the cited
+        authors claim authorship of something, because a passage
+        describing a method in use entails a claim about that method and
+        would credit a work for what it merely applied. An attribution
+        claim is also restated in the voice the cited authors wrote in,
+        because the phrase naming them appears nowhere in their own
+        passage.
 
         Evidence intent scores 0, 1, or 2. Attribution scores 0 or 1. The
         scored passage's anchor is recorded so the score can be checked
@@ -128,10 +215,26 @@ class NLIAligner:
                 model=self.model_name,
             )
 
-        model, tokenizer = self._load()
+        candidates = list(evidence)
+        if intent is Intent.ATTRIBUTION:
+            claiming = [chunk for chunk in candidates if _NOVELTY.search(chunk.text)]
+            if not claiming:
+                # Nothing in the cited work claims authorship of anything,
+                # so nothing in it establishes that it originated this.
+                return Alignment(
+                    score=REJECTED,
+                    intent=intent,
+                    depth=depth,
+                    evidence=candidates[0].anchor,
+                    model=self.model_name,
+                )
+            candidates = claiming
+
+        model, tokenizer = self._load_for(intent)
+        hypothesis = reframe_attribution(claim) if intent is Intent.ATTRIBUTION else claim
         judged = []
-        for chunk in evidence:
-            distribution = self._distribution(model, tokenizer, chunk.anchor.exact, claim)
+        for chunk in candidates:
+            distribution = self._distribution(model, tokenizer, chunk.anchor.exact, hypothesis)
             label = max(distribution, key=lambda key: distribution[key])
             neutral = _mass(distribution, _NEUTRAL_LABELS)
             support = _mass(distribution, _SUPPORT_LABELS)
@@ -189,6 +292,23 @@ class NLIAligner:
         distribution = self._distribution(model, tokenizer, text, pair)
         return max(distribution, key=lambda key: distribution[key])
 
+    def _load_for(self, intent: Intent) -> tuple[PreTrainedModel, PreTrainedTokenizerBase]:
+        """The model measured better for the scale this intent is scored on."""
+        if intent is not Intent.ATTRIBUTION or self.attribution_model_name == self.model_name:
+            # One configured model, or a CPU device where both scales use
+            # the same one, is loaded once rather than held twice.
+            return self._load()
+        if self._attribution_model is None or self._attribution_tokenizer is None:
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+            self._attribution_tokenizer = AutoTokenizer.from_pretrained(self.attribution_model_name)
+            self._attribution_model = AutoModelForSequenceClassification.from_pretrained(
+                self.attribution_model_name
+            )
+            _place(self._attribution_model, self.device)
+            self._attribution_model.eval()
+        return self._attribution_model, self._attribution_tokenizer
+
     def _load(self) -> tuple[PreTrainedModel, PreTrainedTokenizerBase]:
         if self._model is None or self._tokenizer is None:
             from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -237,6 +357,28 @@ def _place(model: PreTrainedModel, device: str) -> str:
 
 def _mass(distribution: dict[str, float], labels: frozenset[str]) -> float:
     return sum(probability for name, probability in distribution.items() if name.lower() in labels)
+
+
+def reframe_attribution(claim: str) -> str:
+    """Restate an attribution claim as the cited work's own contribution
+    sentence.
+
+    A claim not written in that form is returned unchanged, so a claim
+    the pattern does not recognise is scored as it was written rather
+    than rewritten into something else. A claim about priority is left
+    alone for the same reason: restating it would drop the priority.
+    """
+    match = _ATTRIBUTION_FRAME.search(claim)
+    if not match or match.group("priority"):
+        return claim
+    subject = claim[: match.start()].strip().rstrip(",")
+    if not subject:
+        return claim
+    # Only a leading article is safe to lowercase. A subject that opens
+    # with a name keeps its capital.
+    if _LEADING_ARTICLE.match(subject):
+        subject = subject[0].lower() + subject[1:]
+    return f"In this paper, we {_PRESENT_TENSE[match.group('verb').lower()]} {subject}."
 
 
 def _unread_score(intent: Intent) -> int:

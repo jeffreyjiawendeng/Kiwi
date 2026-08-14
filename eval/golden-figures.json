@@ -1,0 +1,137 @@
+{
+  "field": "computer science, figures and tables",
+  "pairs": [
+    {
+      "query": "What does the network model diagram show?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 57514,
+        "end": 57535,
+        "exact": "Fig 1. Network model.",
+        "prefix": "ainst evolving threats. Figure: ",
+        "suffix": " Figure: r 1 = J SN \u2295 h(ID SN ||"
+      }
+    },
+    {
+      "query": "Is there a figure of the mutual authentication phase?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 58212,
+        "end": 58247,
+        "exact": "Fig 4. Mutual authentication phase.",
+        "prefix": "ser registration phase. Figure: ",
+        "suffix": " Figure: D SN ? = D SN * \u2022 Hash "
+      }
+    },
+    {
+      "query": "Which figure counts the cryptographic operations in the proposed protocol?",
+      "document_id": "doc_26c8a1141139da12",
+      "anchor": {
+        "start": 58404,
+        "end": 58471,
+        "exact": "Fig 5. Number of Cryptographic Operations in the Proposed Protocol.",
+        "prefix": "addition (T+) \u2248 0.78 ms Figure: ",
+        "suffix": " Table: 1 , HPW SN = 2 \u00d7 uv 2 -I"
+      }
+    },
+    {
+      "query": "Which figure illustrates replacing a weighted network with virtual nodes?",
+      "document_id": "doc_3c1ceac223d5c007",
+      "anchor": {
+        "start": 14503,
+        "end": 14615,
+        "exact": "Figure 1. Illustration of representing the weighted network (a) by an unweighted network with virtual nodes (b).",
+        "prefix": "weight on a network; if Figure: ",
+        "suffix": " Figure: Figure 2. Critical thre"
+      }
+    },
+    {
+      "query": "Is there a flowchart of the data preprocessing pipeline?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 31948,
+        "end": 32002,
+        "exact": "Fig 1. A flowchart of the data preprocessing pipeline.",
+        "prefix": "re captures the service Figure: ",
+        "suffix": " Figure: Fig 2. A flowchart of t"
+      }
+    },
+    {
+      "query": "Which figure shows the proposed architecture?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 32070,
+        "end": 32103,
+        "exact": "Fig 3. The proposed architecture.",
+        "prefix": "odel training pipeline. Figure: ",
+        "suffix": " Figure: Fig 4. Samples of nodes"
+      }
+    },
+    {
+      "query": "Which figure plots training and validation performance over training?",
+      "document_id": "doc_659ff570e8044f39",
+      "anchor": {
+        "start": 32201,
+        "end": 32295,
+        "exact": "Fig 5. The change in performance for both training and validation sets as training progresses.",
+        "prefix": "est sets of the graphs. Figure: ",
+        "suffix": " Table: training loss has reache"
+      }
+    },
+    {
+      "query": "What does the experimental scenario figure for remote desktop protocols show?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 55141,
+        "end": 55201,
+        "exact": "Fig 1. Experimental scenario for evaluation of RD protocols.",
+        "prefix": " is displayed in Fig 1. Figure: ",
+        "suffix": " Figure: displays the traffic pr"
+      }
+    },
+    {
+      "query": "Is there a boxplot of PSNR across user profiles?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 56371,
+        "end": 56439,
+        "exact": "Fig 8. Boxplot of PSNR for three user profiles in Amazon WorkSpaces.",
+        "prefix": "e in Amazon WorkSpaces. Figure: ",
+        "suffix": " Figure: Fig 9. Variance aggrega"
+      }
+    },
+    {
+      "query": "Which figure gives the packet size cumulative distribution function?",
+      "document_id": "doc_b48982da46d1815a",
+      "anchor": {
+        "start": 57648,
+        "end": 57734,
+        "exact": "Fig 11. Packet size cumulative distribution function for all remote desktop protocols.",
+        "prefix": "emote desktop protocol. Figure: ",
+        "suffix": " Figure: Fig 12 displays the PSN"
+      }
+    },
+    {
+      "query": "Which figure depicts the overall system architecture?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 18563,
+        "end": 18594,
+        "exact": "Fig 1. The system architecture.",
+        "prefix": "owns a software source. Figure: ",
+        "suffix": " Figure: Fig 6 shows a portion o"
+      }
+    },
+    {
+      "query": "Which figure reports throughput and latency for transaction operations?",
+      "document_id": "doc_e69e869cd3bc9a82",
+      "anchor": {
+        "start": 19515,
+        "end": 19572,
+        "exact": "Fig 9. Throughput and latency for transaction operations.",
+        "prefix": "y for Query operations. Figure: ",
+        "suffix": " Figure: Fig 11. The impact of t"
+      }
+    }
+  ]
+}
