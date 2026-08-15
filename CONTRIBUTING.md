@@ -59,6 +59,13 @@ KIWI_GENERATOR_MODEL=ollama/qwen2.5:7b-instruct \
     uv run python eval/_answers.py --project eval/workspace.kiwi --golden eval/golden.json
 ```
 
+Latency decides whether a setting is worth its accuracy, and is the one
+figure that does not transfer between machines:
+
+```bash
+uv run python eval/_latency.py --cpu-rerank
+```
+
 Anchor durability is measured separately, and is what keeps a citation, an annotation, or an evidence passage pointing at the right words after a paper is parsed again. Run it when changing `kiwi.anchor` or the Ingestor:
 
 ```bash
@@ -92,6 +99,14 @@ Annotations live in `papers/<doc_id>/annotations.json` and carry an `Anchor` int
 
 `annotate()` locates the passage by searching the stored text, so a passage that appears twice resolves to its first occurrence.
 
+## Removing things
+
+`kiwi.removal` deletes a paper, a draft, or a note along with what that object owns, and nothing else. A paper owns its parsed text, its annotations, its verification results, and its chunks in the index. A draft owns the sidecar holding its scored claims, its suggestions, and the review decisions recorded on it. A note owns nothing further.
+
+A reference is another object's content. A draft citing a removed paper keeps its prose and its decisions, and the drafts that cite it are reported so the reader decides what their own sentence should say.
+
+Removing a paper from disk without removing its chunks would leave it answering questions, so `remove_paper` does both.
+
 ## Roles and permissions
 
 `kiwi.permissions` defines the permission set and the default role ladder; `project.json` records a project's roles, members, ownership, and required reviews. `require(project, permission, actor)` raises `PermissionDenied` when the project's records do not grant an operation.
@@ -107,6 +122,16 @@ A suggestion is a proposed change that leaves the draft unchanged until it is ac
 Two rules constrain the mechanism. A suggestion is accepted or rejected as written, with no operation that edits it first, because the applied text would otherwise be attributed to whoever proposed it. Rejected suggestions are retained rather than deleted.
 
 Spans are re-resolved through `kiwi.anchor` when a change is applied, so a suggestion survives edits made elsewhere in the draft. A span that no longer resolves, or that matches more than one place, raises `SuggestionNotApplicable`.
+
+## Packaging
+
+```bash
+uv build
+```
+
+An extra adds a model download. Anything a plain install needs to work belongs in the core dependencies, including the Store: `lancedb` sat in the `embed` extra, which left `pip install kiwi` able to read a paper and unable to index it.
+
+CI installs the built wheel on its own, with no extras, and reads, indexes, and queries a paper through it. The rest of the suite runs with every extra installed and would not catch that.
 
 ## Checks
 

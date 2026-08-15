@@ -11,3 +11,23 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest -m "not requires_grobid and not requires_network"
+
+  # The suite above runs with every extra installed. This runs what a
+  # reader gets from a plain install: no models, no services, no API key.
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - name: Install the wheel on its own
+        run: |
+          uv venv .fresh --python 3.12
+          uv pip install --python .fresh/bin/python dist/*.whl
+      - name: Read a paper, index it, and query it
+        run: |
+          .fresh/bin/kiwi setup --non-interactive
+          .fresh/bin/kiwi ingest tests/fixtures/papers/sample.pdf \
+            --project /tmp/Demo.kiwi --text-only
+          .fresh/bin/kiwi index /tmp/Demo.kiwi
+          .fresh/bin/kiwi ask /tmp/Demo.kiwi "what does this paper measure" --k 2

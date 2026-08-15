@@ -43,6 +43,9 @@ class Capability:
     download_gb: float
     models: tuple[str, ...] = ()
     env: tuple[tuple[str, str], ...] = ()
+    # What this costs on a machine with no accelerator, where that is
+    # enough to change the decision.
+    on_cpu: str = ""
 
     def installed(self) -> bool:
         """Whether every package this needs can be imported."""
@@ -80,6 +83,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         download_gb=2.2,
         models=("BAAI/bge-reranker-v2-m3",),
         env=(("KIWI_RERANK_MODEL", "BAAI/bge-reranker-v2-m3"),),
+        on_cpu="about 6.6 seconds per question, against 0.5 on an accelerator",
     ),
     Capability(
         name="generated answers and revisions",

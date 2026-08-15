@@ -175,3 +175,30 @@ def test_an_accelerator_is_not_reported_lost_when_torch_can_reach_it() -> None:
     # Either torch reaches a card, or there is no card, or the build is
     # CPU-only on a machine that has one. Only the last is a loss.
     assert accelerator_lost() in (True, False)
+
+
+def test_the_store_is_a_core_dependency_not_an_extra() -> None:
+    # Every install needs somewhere to put chunks. Keeping the Store's
+    # dependency in an extra leaves a plain install able to read a paper
+    # and unable to index it, which is how it was found.
+    import tomllib
+    from pathlib import Path
+
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    core = " ".join(pyproject["project"]["dependencies"])
+    extras = " ".join(
+        dep for group in pyproject["project"]["optional-dependencies"].values() for dep in group
+    )
+    assert "lancedb" in core
+    assert "lancedb" not in extras
+
+
+def test_the_extras_hold_only_model_backed_capabilities() -> None:
+    # What an extra adds is a model download. Anything a plain install
+    # needs to function belongs in the core dependencies.
+    import tomllib
+    from pathlib import Path
+
+    pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    extras = pyproject["project"]["optional-dependencies"]
+    assert set(extras) == {"embed", "generate", "align"}

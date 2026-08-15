@@ -32,6 +32,7 @@ from kiwi.core import (
 from kiwi.permissions import Member, PermissionDenied
 from kiwi.protocols import IngestError
 from kiwi.registry import default_generator, default_ingestor
+from kiwi.removal import NotFound, Removal, remove_draft, remove_note, remove_paper
 from kiwi.review import (
     ReviewItem,
     UnknownDecision,
@@ -539,6 +540,45 @@ def remove_annotation(
     """Delete one annotation. Returns what remains on the paper."""
     remaining = delete_annotation(Path(project), document_id, annotation_id)
     return {"annotations": [annotation_to_dict(a) for a in remaining]}
+
+
+def _removed(call: Callable[[], Removal]) -> Json:
+    """Run a removal, mapping its refusals onto status codes."""
+    try:
+        result = call()
+    except NotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionDenied as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"removed": list(result.removed), "citing_drafts": list(result.citing_drafts)}
+
+
+@app.delete("/papers/{document_id}")
+def delete_paper(
+    document_id: str = PathParam(..., pattern=r"^doc_[0-9a-f]{16}$"),
+    project: str = "workspace.kiwi",
+    actor: str | None = None,
+) -> Json:
+    """Delete a paper, its annotations, its verification, and its chunks.
+
+    Drafts citing it keep their prose and are reported instead.
+    """
+    return _removed(lambda: remove_paper(Path(project), document_id, actor=actor))
+
+
+@app.delete("/drafts/{relpath:path}")
+def delete_draft(relpath: str, project: str = "workspace.kiwi", actor: str | None = None) -> Json:
+    """Delete a draft and its sidecar, which holds its review decisions."""
+    return _removed(lambda: remove_draft(Path(project), relpath, actor=actor))
+
+
+@app.delete("/notes/{relpath:path}")
+def delete_note(relpath: str, project: str = "workspace.kiwi", actor: str | None = None) -> Json:
+    """Delete a note. Deleting anyone else's requires the permission that
+    covers editing them."""
+    return _removed(lambda: remove_note(Path(project), relpath, actor=actor))
 
 
 @app.post("/drafts/cite")

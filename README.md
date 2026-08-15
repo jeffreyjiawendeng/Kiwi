@@ -25,7 +25,17 @@ cd Kiwi
 uv sync --all-extras --dev
 ```
 
-`--all-extras` installs the optional embedding, generation, and alignment dependencies. Running `uv sync --dev` without it installs ingestion, chunking, BM25 retrieval, reference verification, and the web interface, with no model download and no API key required.
+`--all-extras` installs the optional embedding, generation, and alignment dependencies. Each of them downloads a model on first use. Without them Kiwi still reads papers, indexes them, answers questions by BM25 keyword search, verifies references, and serves the web interface, with no model download and no API key.
+
+Kiwi is not on PyPI. `uv build` produces a wheel that installs on its own, which is what continuous integration reads, indexes, and queries a paper through:
+
+```bash
+uv build
+uv pip install dist/kiwi-*.whl
+kiwi ingest paper.pdf --project MyProject.kiwi --text-only
+kiwi index MyProject.kiwi
+kiwi ask MyProject.kiwi "what does this paper measure"
+```
 
 To see what this machine can already do, and what each remaining capability costs and buys:
 
@@ -49,6 +59,14 @@ docker run --rm -p 8070:8070 -e JAVA_TOOL_OPTIONS=-XX:-UseContainerSupport lfopp
 
 Use it to try Kiwi in a minute. Use GROBID for the results in this README, all of which were measured on GROBID's output.
 
+### Platforms
+
+Kiwi is developed and tested on Windows. Every figure in this README and in [eval/README.md](eval/README.md) was produced there, on one machine.
+
+Nothing in Kiwi is written for a single operating system, and the wheel carries no platform tag. Linux is exercised on each push by continuous integration, which installs the built wheel on its own and reads, indexes, and queries a paper through it. That is a check that the package works, not a claim that the project is tested on Linux.
+
+macOS is not tested at all. The device selection has a Metal path, which no measurement here has run. Treat both as unsupported until someone reports otherwise.
+
 ### GPU
 
 Embedding and claim alignment run on a GPU when one is present and fall back to the CPU when it is not. Retrieval returns the same results either way. Claim alignment uses larger models where an accelerator is present, so its scores differ between the two.
@@ -59,7 +77,9 @@ PyPI ships a CPU-only build of torch on some platforms. Install a matching CUDA 
 uv pip install torch --index-url https://download.pytorch.org/whl/cu129
 ```
 
-Pick the index that matches the card: `cu129` or `cu128` for Blackwell (RTX 50 series), `cu126` for older cards. Apple silicon uses Metal through the stock build and needs no extra step. Running `uv sync` reinstalls the CPU build, so repeat this command afterwards.
+Pick the index that matches the card: `cu129` or `cu128` for Blackwell (RTX 50 series), `cu126` for older cards. Running `uv sync` reinstalls the CPU build, so repeat this command afterwards.
+
+Apple silicon has a Metal path in the device selection that nothing here has run. See Platforms above.
 
 `kiwi health` reports the device in use and the model loaded on it.
 
@@ -106,7 +126,7 @@ A `.env` file in the working directory is read at startup, by both the CLI and t
 | `KIWI_EMBED_MODEL` | Embedding model. Defaults to `BAAI/bge-large-en-v1.5`. Changing it requires deleting `.kiwi/` and re-indexing, because stored vectors carry the width of the model that produced them. |
 | `KIWI_INTENT_MODEL` | Citation intent classifier labelled `background`, `method`, and `result`. Unset, every claim is treated as evidence and scored. |
 | `KIWI_RERANK_MODEL` | Cross-encoder that reorders retrieved passages, `BAAI/bge-reranker-v2-m3` being the one measured. Off unless set, because it is a further model download. It improves retrieval on every set measured and needs no re-indexing. |
-| `KIWI_RERANK_DEPTH` | How many retrieved passages the reranker reads. Defaults to 20. |
+| `KIWI_RERANK_DEPTH` | How many retrieved passages the reranker reads. Defaults to 20. Each one costs a model pass, which is the whole of reranking's latency. |
 | `KIWI_NO_ALIGN` | Disables claim alignment. |
 | `KIWI_CHUNK_TOKENS` | Chunk size target. Defaults to 512. Changing it requires deleting `.kiwi/` and re-indexing, because chunk boundaries move with it. A project indexed under an earlier default keeps its existing chunks until it is re-indexed. |
 | `KIWI_DEVICE` | Device models run on: `auto` (default), `cuda`, `mps`, or `cpu`. A device that is named but unavailable falls back to the CPU. |
@@ -248,7 +268,7 @@ Hybrid retrieval fuses BM25 and vector rankings by Reciprocal Rank Fusion, weigh
 
 That weighting suits the task Kiwi does: a question about papers the reader already has, naming a method or a metric that appears verbatim in the passage answering it. It does not transfer to matching a claim against an abstract, where wording need not be shared. On SciFact, corpus-wide retrieval over 5183 abstracts reaches Recall@1 0.567 and MRR 0.668, and the opposite weighting would reach 0.633 and 0.716 there while costing up to 0.155 MRR on figure-directed queries here.
 
-Setting `KIWI_RERANK_MODEL` reorders the retrieved passages with a cross-encoder and improves retrieval on every set measured, by more than any other change: Recall@1 rises from 0.740 to 0.940 on the tuning corpus and from 0.559 to 0.824 on the held-out one, which closes most of the transfer gap above. Direct-claim alignment improves with it and attribution does not move. It is off by default because it is a further model download, and because on hedged prose it raises false endorsement on the tuning set from 0.062 to 0.125 while improving accuracy. See [eval/README.md](eval/README.md) for the corpus, method, and full results.
+Setting `KIWI_RERANK_MODEL` reorders the retrieved passages with a cross-encoder and improves retrieval on every set measured, by more than any other change: Recall@1 rises from 0.740 to 0.940 on the tuning corpus and from 0.559 to 0.824 on the held-out one, which closes most of the transfer gap above. Direct-claim alignment improves with it and attribution does not move. It is off by default because it is a further model download, because on hedged prose it raises false endorsement on the tuning set from 0.062 to 0.125 while improving accuracy, and because it costs time: about 430 ms per question on an accelerator, and 6.6 seconds without one. See [eval/README.md](eval/README.md) for the corpus, method, and full results.
 
 ```bash
 uv run kiwi evaluate eval/workspace.kiwi --golden eval/golden.json

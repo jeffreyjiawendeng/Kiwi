@@ -690,3 +690,35 @@ def test_a_default_project_path_is_suggested() -> None:
     suggested = Path(response.json()["path"])
     assert suggested.is_absolute()
     assert suggested.suffix == ".kiwi"
+
+
+def test_deleting_a_paper_removes_it_and_its_chunks(tmp_path: Path) -> None:
+    project, doc_id = _seeded_project(tmp_path)
+    client.post("/index", json={"project": str(project)})
+
+    response = client.delete(f"/papers/{doc_id}", params={"project": str(project)})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["removed"] == [f"papers/{doc_id}"]
+    assert not (project / "papers" / doc_id).exists()
+    assert client.get(f"/papers/{doc_id}", params={"project": str(project)}).status_code == 404
+
+
+def test_deleting_a_draft_removes_its_sidecar(tmp_path: Path) -> None:
+    project, _ = _seeded_project(tmp_path)
+    client.put("/drafts/chapter.md", json={"project": str(project), "content": "Some prose."})
+
+    response = client.delete("/drafts/chapter.md", params={"project": str(project)})
+
+    assert response.status_code == 200, response.text
+    assert not (project / "drafts" / "chapter.md").exists()
+    assert not (project / "drafts" / "chapter.md.kiwi.json").exists()
+
+
+def test_deleting_something_absent_is_a_404(tmp_path: Path) -> None:
+    project, _ = _seeded_project(tmp_path)
+    assert client.delete("/drafts/absent.md", params={"project": str(project)}).status_code == 404
+    assert (
+        client.delete("/papers/doc_0000000000000000", params={"project": str(project)}).status_code
+        == 404
+    )

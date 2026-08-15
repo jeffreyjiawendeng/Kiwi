@@ -194,6 +194,29 @@ Direct evidence claims improve on both corpora and the attribution scale does no
 
 That is the error this project treats as the serious one, because a claim scored 2 is displayed without a warning. It is two claims of a 24-claim set and the held-out hedged set does not move, so this is a small sample rather than a settled result — but it is the reason reranking is asked for rather than assumed, alongside the model download. A reader who turns it on gets better retrieval everywhere, better direct-claim alignment, and one more chance of an approximate quantitative claim being reported as supported.
 
+## Latency
+
+Every other figure here is about quality. This one is about cost, and it
+decides whether reranking is worth its accuracy.
+
+```bash
+uv run python eval/_latency.py --cpu-rerank
+```
+
+Wall clock on one machine, an RTX 5090 laptop, over 25 questions and 127 chunks. Model loading is warmed up first and not counted. These do not transfer; run it to learn what a machine does.
+
+| Step | Median ms | p95 ms |
+|---|---|---|
+| Embed the question | 20 | 26 |
+| Retrieve, fusion only | 38 | 51 |
+| Retrieve, reranked | 471 | 494 |
+| Retrieve, reranked on a CPU | 6615 | 7026 |
+| Score one claim | 170 | 191 |
+
+Reranking costs about 430 ms per question on an accelerator, for Recall@1 rising from 0.559 to 0.824 on the held-out corpus. A question answers in about half a second either way.
+
+Without an accelerator it costs 6.6 seconds, which is a different decision. Twenty passages read one at a time through a cross-encoder is the whole of that cost, and `KIWI_RERANK_DEPTH` is what trades it back. `kiwi setup` reports the figure where the machine it runs on has no accelerator.
+
 ## Held-out corpus
 
 `corpus-heldout/` holds ten open-access papers across ecology, epidemiology, archaeology, psychology, and public health, none of them from the tuning corpus's field. The sets built against it:
@@ -776,5 +799,5 @@ The gain is small and it holds on both corpora, on grounded and on uncited alike
 - The derived attribution set takes each claim from the abstract that introduced the thing, so a positive shares wording with the passage it is scored against. Its recall figure is an upper bound. Its negatives are sound: a sample was read and none had originated what the claim names.
 - The anchor figures come from two parsers that differ in what they keep, not from two versions of the same parser. An upgrade within GROBID would move the text less than this, so 0.941 is a floor rather than the expected rate.
 - The reranking figures come from one model. Two others were measured and both make retrieval worse on the SciFact test split than no reranking at all, so "reranking helps" is not a safe generalisation: `BAAI/bge-reranker-v2-m3` helps, and a reranker chosen without measuring may not.
-- Reranking was measured on retrieval and on alignment, not on latency. It adds one model pass per candidate, twenty per query by default, on top of the embedder.
+- The latency figures come from one machine, one operating system, and one accelerator. Nothing here was measured on Apple silicon.
 - Attribution recall is the weakest figure that ships. It reaches 1.000 on the held-out set and 0.534 on the derived one, where a positive is a machine-derived sentence rather than a claim a reader wrote.

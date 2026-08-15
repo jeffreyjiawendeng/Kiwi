@@ -1026,11 +1026,12 @@ wheels = [
 
 [[package]]
 name = "kiwi"
-version = "1.5.0"
+version = "1.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "lancedb" },
     { name = "platformdirs" },
     { name = "pydantic" },
     { name = "pypdf" },
@@ -1047,7 +1048,6 @@ align = [
 ]
 embed = [
     { name = "einops" },
-    { name = "lancedb" },
     { name = "sentence-transformers" },
 ]
 generate = [
@@ -1068,7 +1068,7 @@ requires-dist = [
     { name = "einops", marker = "extra == 'embed'", specifier = ">=0.8" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.28" },
-    { name = "lancedb", marker = "extra == 'embed'", specifier = ">=0.20" },
+    { name = "lancedb", specifier = ">=0.20" },
     { name = "litellm", marker = "extra == 'generate'", specifier = ">=1.60" },
     { name = "platformdirs", specifier = ">=4.3" },
     { name = "pydantic", specifier = ">=2.10" },

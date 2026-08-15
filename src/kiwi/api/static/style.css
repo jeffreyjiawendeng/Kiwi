@@ -626,3 +626,24 @@ body.busy {
   outline: 3px dashed var(--accent);
   outline-offset: -6px;
 }
+
+/* Deleting is available on the row but never the first thing seen. */
+.btn-remove {
+  float: right;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+  visibility: hidden;
+}
+
+.nav-list li:hover .btn-remove {
+  visibility: visible;
+}
+
+.btn-remove:hover {
+  color: var(--danger);
+}

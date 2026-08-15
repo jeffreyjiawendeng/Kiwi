@@ -279,6 +279,51 @@ def align(
 
 
 @app.command()
+def remove(
+    project: Path = typer.Argument(..., exists=True, file_okay=False, help="Project folder."),
+    paper: str = typer.Option(None, "--paper", help="Document ID of a paper to delete."),
+    draft: str = typer.Option(None, "--draft", help="Draft path relative to drafts/."),
+    note: str = typer.Option(None, "--note", help="Note path relative to notes/."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Delete without confirming."),
+) -> None:
+    """Delete a paper, a draft, or a note, and everything it owns.
+
+    A paper owns its parsed text, its annotations, its verification
+    results, and its chunks. A draft owns the sidecar holding its scored
+    claims and the review decisions recorded on it.
+    """
+    from kiwi.removal import NotFound, remove_draft, remove_note, remove_paper
+
+    targets = [
+        (name, value)
+        for name, value in (("paper", paper), ("draft", draft), ("note", note))
+        if value
+    ]
+    if len(targets) != 1:
+        typer.secho("Name exactly one of --paper, --draft, or --note.", fg="red")
+        raise typer.Exit(code=1)
+
+    kind, target = targets[0]
+    if not yes and not typer.confirm(f"Delete {kind} {target} and everything it owns?"):
+        raise typer.Exit(code=1)
+
+    remover = {"paper": remove_paper, "draft": remove_draft, "note": remove_note}[kind]
+    try:
+        result = remover(project, target)
+    except NotFound as exc:
+        typer.secho(str(exc), fg="red")
+        raise typer.Exit(code=1) from exc
+
+    for path in result.removed:
+        typer.secho(f"removed {path}", fg="green")
+    if result.citing_drafts:
+        typer.secho(
+            "\nThese drafts cite it and were left as they are: " + ", ".join(result.citing_drafts),
+            fg="yellow",
+        )
+
+
+@app.command()
 def setup(
     non_interactive: bool = typer.Option(
         False, "--non-interactive", help="Report what is missing and exit without asking."
@@ -319,6 +364,8 @@ def setup(
             continue
         if capability.download_gb:
             typer.echo(f"      download: {capability.download_gb:.1f} GB")
+        if capability.on_cpu and resolve_device() == "cpu":
+            typer.secho(f"      on a CPU : {capability.on_cpu}", fg="yellow")
         if not non_interactive and typer.confirm(f"      set up {capability.name}?", default=True):
             wanted.append(capability)
 

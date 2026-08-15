@@ -92,11 +92,7 @@ async function openProject(path, name) {
   await refreshProjectSummary();
   // Asking a project with nothing in it returns nothing, which reads as a
   // broken search rather than an empty library.
-  if (state.papers.length) {
-    showAsk();
-  } else {
-    showEmptyProject();
-  }
+  showEmptyOrAsk();
 }
 
 function showEmptyProject() {
@@ -188,6 +184,37 @@ function setBusy(busy) {
   if (button) button.disabled = busy;
 }
 
+// ---------------------------------------------------------------- remove
+
+// What an object owns goes with it. What merely cites it does not, so a
+// draft's sentence is never edited on its author's behalf.
+const OWNED = {
+  paper: "its annotations, its verification results, and its chunks",
+  draft: "its scored claims and the review decisions recorded on it",
+  note: "nothing else",
+};
+
+async function removeObject(kind, path, label) {
+  if (!confirm(`Delete ${label}?\n\nThis also deletes ${OWNED[kind]}.`)) return;
+  const query = `project=${encodeURIComponent(state.project)}${state.actor ? `&actor=${encodeURIComponent(state.actor)}` : ""}`;
+  const result = await api(`${path}?${query}`, { method: "DELETE" });
+  await refreshProjectSummary();
+  showEmptyOrAsk();
+  setStatus(state.project, `Deleted ${label}`);
+  if (result.citing_drafts && result.citing_drafts.length) {
+    reportError(
+      new Error(
+        `These drafts cite it and were left unchanged: ${result.citing_drafts.join(", ")}`
+      )
+    );
+  }
+}
+
+function showEmptyOrAsk() {
+  if (state.papers.length) showAsk();
+  else showEmptyProject();
+}
+
 function paperTitle(documentId) {
   const paper = state.papers.find((p) => p.document_id === documentId);
   return paper ? paper.title : documentId;
@@ -199,6 +226,20 @@ function renderEmptyHint(list, text) {
   li.className = "nav-empty";
   li.textContent = text;
   list.appendChild(li);
+}
+
+// A delete control sits on the row it deletes, and stops the click from
+// also opening what it just removed.
+function addRemoveControl(li, kind, path, label) {
+  const button = document.createElement("button");
+  button.className = "btn-remove";
+  button.title = `Delete ${label}`;
+  button.textContent = "×";
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    wrapAsync(removeObject)(kind, path, label);
+  });
+  li.appendChild(button);
 }
 
 function renderSidebarLists() {
@@ -213,6 +254,7 @@ function renderSidebarLists() {
       setActiveNavItem(li);
       showPaper(paper.document_id);
     });
+    addRemoveControl(li, "paper", `/papers/${paper.document_id}`, paper.title);
     papersList.appendChild(li);
   }
 
@@ -226,6 +268,7 @@ function renderSidebarLists() {
       setActiveNavItem(li);
       showNote(relpath);
     });
+    addRemoveControl(li, "note", `/notes/${relpath}`, relpath);
     notesList.appendChild(li);
   }
 
@@ -239,6 +282,7 @@ function renderSidebarLists() {
       setActiveNavItem(li);
       showDraft(relpath);
     });
+    addRemoveControl(li, "draft", `/drafts/${relpath}`, relpath);
     draftsList.appendChild(li);
   }
 }
