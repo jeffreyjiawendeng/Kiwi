@@ -1,0 +1,1340 @@
+/* Kiwi interface. Built on tokens.css; see docs for the design spec.
+   Structure is sharp and bordered, controls are slightly rounded, and
+   shadow appears only on floating layers. */
+
+/* The hidden attribute is honoured through a user-agent rule that any
+   author rule setting display outranks. Views, the navigation rail, and
+   the dialog overlay all set display, so without this a hidden overlay
+   stays over the page and swallows every click. */
+[hidden] {
+  display: none !important;
+}
+
+/* --- Frame -------------------------------------------------------------- */
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--titlebar-h);
+  flex: 0 0 auto;
+  padding: 0 var(--space-3);
+  background: var(--bg-sunken);
+  border-bottom: var(--border-w) solid var(--border);
+}
+
+#brand {
+  font-weight: var(--weight-semi);
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
+
+#topbar-spacer,
+#statusbar-spacer { flex: 1 1 auto; }
+
+.topbar-project {
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-project:hover { background: var(--bg-hover); }
+
+.btn-quiet {
+  height: var(--input-h);
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out),
+              color var(--dur-instant) var(--ease-out);
+}
+.btn-quiet:hover { background: var(--bg-hover); color: var(--text); }
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--input-h);
+  padding: 0;
+  line-height: 0;
+}
+.icon { display: inline-flex; line-height: 0; }
+
+#body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* --- Activity bar ------------------------------------------------------- */
+
+#activitybar {
+  width: var(--nav-w);
+  flex: 0 0 var(--nav-w);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--bg-sunken);
+  border-right: var(--border-w) solid var(--border);
+}
+
+.activity-spacer { flex: 1 1 auto; }
+.activity-sep {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border);
+}
+
+.activity {
+  position: relative;
+  height: var(--nav-w);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--dur-instant) var(--ease-out);
+}
+.activity:hover { color: var(--text); }
+.activity.active { color: var(--text); }
+
+/* The selected item is marked on the edge it sits against, so the icon
+   keeps its shape whether or not it is selected. */
+.activity.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--accent);
+}
+.activity__icon { display: inline-flex; line-height: 0; }
+
+.activity__badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--caution);
+  color: var(--bg);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semi);
+  line-height: 14px;
+  text-align: center;
+}
+.activity__badge--danger { background: var(--danger); }
+
+/* --- Panels ------------------------------------------------------------- */
+
+/* One component. The centre and the right panel differ only in what fills
+   their header. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+#panel-left {
+  flex: 0 0 auto;
+  background: var(--bg-sunken);
+}
+#center { flex: 1 1 auto; }
+#panel-right {
+  flex: 0 0 auto;
+  background: var(--bg-sunken);
+  border-left: var(--border-w) solid var(--border);
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--toolbar-h);
+  flex: 0 0 auto;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-bottom: var(--border-w) solid var(--border);
+}
+
+.panel__title {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* A tabbed panel's body holds one tab body per open tab, and those scroll
+   themselves. Left scrollable, the two would sit on the same edge, each
+   drawing its own bar over the other. */
+.panel--tabbed > .panel__body { overflow: hidden; }
+
+.panel__form {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.panel__empty { padding: var(--space-4) var(--space-3); }
+.panel__loading { padding: var(--space-3); }
+
+/* A drag target wide enough to hit, drawn as a hairline. */
+.resizer {
+  flex: 0 0 4px;
+  margin: 0 -2px;
+  z-index: 5;
+  cursor: col-resize;
+  background: transparent;
+  border-left: var(--border-w) solid var(--border);
+}
+.resizer:hover { border-left-color: var(--accent); }
+
+/* --- Tabs --------------------------------------------------------------- */
+
+/* A tab is as tall as the strip that holds it, so the header stretches
+   its children rather than centring them. */
+.tabstrip {
+  align-items: stretch;
+  padding: 0;
+}
+.tabstrip .panel__actions {
+  align-items: center;
+  padding-right: var(--space-2);
+}
+
+.tabs {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+/* Every tab is the same width, whatever it holds. A strip of tabs whose
+   widths track their titles cannot be scanned by position. */
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 var(--tab-w);
+  width: var(--tab-w);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border-right: var(--border-w) solid var(--border);
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+  cursor: pointer;
+  font-size: var(--text-small);
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* The marker sits along the top of the selected tab, immediately under
+   the line that divides the strip from the title bar. */
+.tab.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.tab .icon { color: var(--text-faint); }
+
+/* The right panel's tabs are a fixed set of four short labels, not file
+   names. They divide the strip evenly, so the header is a stable row of
+   four rather than four widths that shift with their text. */
+#ai-tabs { overflow-x: hidden; }
+#ai-tabs .tab {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 0 var(--space-2);
+  justify-content: center;
+}
+#ai-tabs .tab__title {
+  flex: 0 1 auto;
+  text-align: center;
+}
+/* The title takes the space, so the close control sits against the right
+   edge of every tab rather than trailing whatever the name happens to be. */
+.tab__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab__close {
+  border: none;
+  background: none;
+  color: inherit;
+  padding: 1px;
+  line-height: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  opacity: 0;
+}
+.tab:hover .tab__close,
+.tab.active .tab__close { opacity: 0.7; }
+.tab__close:hover { opacity: 1; background: var(--bg-hover); }
+
+/* The dot stands in for the close control until the tab is hovered, so an
+   unsaved file is visible without hunting for it. */
+.tab__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 auto;
+}
+.tab.dirty .tab__close { opacity: 0; }
+.tab.dirty:hover .tab__dot { display: none; }
+.tab.dirty:hover .tab__close { opacity: 0.7; }
+
+.tabbody {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+.tabbody--flush {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Menus -------------------------------------------------------------- */
+
+#menu-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.menu {
+  position: absolute;
+  min-width: 210px;
+  padding: var(--space-1) 0;
+  background: var(--bg-raised);
+  border: var(--border-w) solid var(--border);
+  box-shadow: var(--shadow-float);
+  pointer-events: auto;
+  animation: menu-in var(--dur-instant) var(--ease-out);
+}
+@keyframes menu-in { from { opacity: 0; } }
+
+.menu__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 3px var(--space-3);
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+.menu__item:hover,
+.menu__item:focus-visible { background: var(--bg-hover); outline: none; }
+.menu__item.disabled { color: var(--text-faint); cursor: default; }
+.menu__item.disabled:hover { background: none; }
+.menu__label { flex: 1 1 auto; }
+.menu__item .kbd { margin-left: auto; }
+.menu__item--parent .icon { color: var(--text-faint); }
+
+.menu__sep {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+/* A submenu opens against its parent row, to the right unless the window
+   runs out of space. */
+.menu--child {
+  top: -5px;
+  left: 100%;
+}
+.menu--child.menu--flip { left: auto; right: 100%; }
+
+/* --- Home --------------------------------------------------------------- */
+
+.home { max-width: 60ch; margin: 6vh auto 0; }
+.home--project { margin-top: 0; max-width: 72ch; }
+
+.home__title {
+  font-size: 28px;
+  font-weight: var(--weight-semi);
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-2);
+}
+.home--project .home__title { font-size: var(--text-title); }
+.home__sub { color: var(--text-muted); margin: 0 0 var(--space-5); }
+
+.home__actions { display: flex; flex-direction: column; gap: var(--space-2); max-width: 42ch; }
+
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shortcut:hover { background: var(--bg-hover); }
+.shortcut__label { flex: 1 1 auto; }
+
+.home__recent { margin-top: var(--space-6); }
+.home__attention { margin-bottom: var(--space-4); }
+
+/* --- Tree --------------------------------------------------------------- */
+
+.tree { padding: var(--space-1) 0 var(--space-4); }
+.tree__section { margin-bottom: var(--space-1); }
+
+.tree__group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semi);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tree__group:hover { color: var(--text); }
+.tree__group--static { cursor: default; }
+.tree__name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Every count ends the same distance from the panel edge, so the three
+   read as a column. The group's action takes the same place on hover
+   rather than displacing them. */
+.tree__count {
+  color: var(--text-faint);
+  font-weight: var(--weight-normal);
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+  text-align: right;
+}
+.tree__group .row__remove {
+  position: absolute;
+  right: var(--space-2);
+  top: 0;
+  bottom: 0;
+  height: auto;
+}
+.tree__group:hover .tree__count { visibility: hidden; }
+
+.tree__twist {
+  display: inline-flex;
+  line-height: 0;
+  transform: rotate(-90deg);
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.tree__twist.open { transform: none; }
+
+.tree__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding-right: var(--space-2);
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--text-small);
+}
+.tree__item:hover { background: var(--bg-hover); }
+.tree__item .icon { color: var(--text-faint); }
+.tree__label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree__item:hover .row__remove,
+.tree__item:focus-visible .row__remove { opacity: 1; }
+
+/* --- Hits: search results and review items ------------------------------ */
+
+.hits { padding-bottom: var(--space-4); }
+.hits__count { padding: var(--space-1) var(--space-3); }
+
+.hit {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-left: 2px solid transparent;
+  border-bottom: var(--border-w) solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.hit:hover { background: var(--bg-hover); }
+.hit.active { background: var(--bg-active); border-left-color: var(--accent); }
+.hit__source { font-weight: var(--weight-medium); }
+.hit__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+/* --- AI panel ----------------------------------------------------------- */
+
+.ai__answer { padding: var(--space-3); }
+.panel-card {
+  padding: var(--space-3);
+  border-bottom: var(--border-w) solid var(--border);
+}
+
+/* --- Status bar --------------------------------------------------------- */
+
+#statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--statusbar-h);
+  flex: 0 0 auto;
+  padding: 0 var(--space-3);
+  background: var(--bg-sunken);
+  border-top: var(--border-w) solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-small);
+}
+
+#status-progress { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+#status-progress .bar { width: 120px; }
+
+/* --- Typography inside a tab -------------------------------------------- */
+
+.view-title {
+  font-size: var(--text-title);
+  line-height: var(--leading-tight);
+  font-weight: var(--weight-semi);
+  margin: 0 0 var(--space-3);
+}
+
+.section-title {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semi);
+  margin: var(--space-5) 0 var(--space-2);
+}
+.section-title:first-child { margin-top: 0; }
+
+.muted { color: var(--text-muted); }
+.faint { color: var(--text-faint); }
+.small { font-size: var(--text-small); }
+
+/* --- Toolbar and lists -------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--toolbar-h);
+  flex: 0 0 auto;
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-w) solid var(--border);
+  background: var(--bg);
+}
+.toolbar .input { flex: 0 1 260px; }
+.toolbar-spacer { flex: 1 1 auto; }
+
+.rows { flex: 1 1 auto; overflow-y: auto; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  border-bottom: var(--border-w) solid transparent;
+}
+.row:hover { background: var(--bg-hover); }
+.row.selected { background: var(--bg-active); }
+
+/* Alignment is what makes a column scannable, so the header and the rows
+   take their widths from the same classes. A number column is right
+   aligned on tabular figures; a lane is reserved for the row action so
+   nothing shifts when it appears. */
+.col-status {
+  flex: 0 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.col-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.col-author {
+  flex: 0 0 var(--col-author);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--text-small);
+}
+.col-num {
+  flex: 0 0 var(--col-num);
+  text-align: right;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  font-variant-numeric: tabular-nums;
+}
+.col-action {
+  flex: 0 0 var(--col-action);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.row__status {
+  flex: 0 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.row__title { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Removal is present on every row and quiet until the row is under the
+   pointer or holds focus. */
+.row__remove {
+  flex: 0 0 auto;
+  font-size: var(--text-small);
+  opacity: 0;
+}
+.row:hover .row__remove,
+.row:focus-visible .row__remove,
+.row__remove:focus-visible { opacity: 1; }
+.row__meta { flex: 0 0 auto; color: var(--text-muted); font-size: var(--text-small); }
+.row__num {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+}
+
+.rows-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding: 0 var(--space-4);
+  background: var(--bg-sunken);
+  border-bottom: var(--border-w) solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.rows-head button {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+.rows-head button:hover { color: var(--text); }
+
+/* In the header a number column is a label, not a figure. */
+.rows-head .col-num,
+.rows-head .col-author {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+.rows-head .col-author { text-align: left; }
+
+/* --- Cards and attention rows ------------------------------------------- */
+
+.attention {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--border);
+  border-left-width: 3px;
+  background: var(--bg-raised);
+  cursor: pointer;
+  margin-bottom: var(--space-1);
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+}
+.attention:hover { background: var(--bg-hover); }
+.attention--danger { border-left-color: var(--danger); }
+.attention--caution { border-left-color: var(--caution); }
+.attention--neutral { border-left-color: var(--border-strong); }
+.attention__count { flex: 1 1 auto; }
+.attention__go { color: var(--text-muted); font-size: var(--text-small); }
+
+.state-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-small);
+}
+.state-line b { color: var(--text); font-weight: var(--weight-medium); }
+
+/* --- Empty states ------------------------------------------------------- */
+
+.empty { max-width: 52ch; }
+.empty h2 {
+  font-size: var(--text-title);
+  font-weight: var(--weight-semi);
+  margin: 0 0 var(--space-2);
+}
+.empty p { color: var(--text-muted); margin: 0 0 var(--space-4); }
+
+.empty--centred {
+  max-width: 400px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+
+/* --- Drop target -------------------------------------------------------- */
+
+#app.dropping::after {
+  content: "Drop PDFs to add them";
+  position: fixed;
+  inset: var(--titlebar-h) 0 var(--statusbar-h) var(--nav-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+  color: var(--accent);
+  font-weight: var(--weight-semi);
+  z-index: 40;
+  pointer-events: none;
+}
+
+/* --- Errors ------------------------------------------------------------- */
+
+/* Above the frame, below dialogs. Errors outlive the view that raised
+   them, so they do not live inside one. */
+#error-stack {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--statusbar-h) + var(--space-3));
+  transform: translateX(-50%);
+  width: min(680px, calc(100vw - var(--space-6)));
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+#error-stack:empty { display: none; }
+#error-stack .banner { box-shadow: var(--shadow-float); border: var(--border-w) solid var(--border); }
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border-bottom: var(--border-w) solid var(--border);
+}
+.banner__body { flex: 1 1 auto; }
+.banner__title { font-weight: var(--weight-medium); }
+.banner__detail { color: var(--text-muted); font-size: var(--text-small); margin-top: 2px; }
+
+/* --- Dialog ------------------------------------------------------------- */
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.dialog {
+  width: min(520px, calc(100vw - var(--space-6)));
+  background: var(--bg-raised);
+  border: var(--border-w) solid var(--border);
+  box-shadow: var(--shadow-float);
+  padding: var(--space-5);
+  animation: dialog-in var(--dur-dialog) var(--ease-out);
+}
+@keyframes dialog-in { from { opacity: 0; transform: translateY(-4px); } }
+
+.dialog h2 {
+  font-size: var(--text-title);
+  font-weight: var(--weight-semi);
+  margin: 0 0 var(--space-3);
+}
+.dialog p { margin: 0 0 var(--space-3); color: var(--text-muted); }
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+/* --- Command palette and quick open ------------------------------------- */
+
+.palette {
+  width: min(560px, calc(100vw - var(--space-6)));
+  margin-top: 12vh;
+  align-self: flex-start;
+  background: var(--bg-raised);
+  border: var(--border-w) solid var(--border);
+  box-shadow: var(--shadow-float);
+}
+.palette__input {
+  width: 100%;
+  height: 38px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-bottom: var(--border-w) solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-title);
+}
+.palette__input:focus-visible { outline: none; }
+.palette__list { max-height: 46vh; overflow-y: auto; }
+.palette__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0 var(--space-4);
+  height: 30px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.palette__item.active { background: var(--bg-active); }
+.palette__item .kbd { margin-left: auto; }
+.palette__group {
+  padding: var(--space-2) var(--space-4) var(--space-1);
+  color: var(--text-faint);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--text-muted);
+  border: var(--border-w) solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  background: var(--bg-sunken);
+  white-space: nowrap;
+}
+
+/* --- Inline confirmation ------------------------------------------------ */
+
+.btn--confirming {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* --- Tables ------------------------------------------------------------- */
+
+table { border-collapse: collapse; width: 100%; }
+th, td {
+  text-align: left;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-w) solid var(--border);
+  vertical-align: top;
+}
+th {
+  color: var(--text-muted);
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* --- Prose surfaces ----------------------------------------------------- */
+
+.prose h1, .prose h2, .prose h3 {
+  font-size: var(--text-title);
+  font-weight: var(--weight-semi);
+  line-height: var(--leading-tight);
+  margin: var(--space-5) 0 var(--space-2);
+}
+.prose p { margin: 0 0 var(--space-4); }
+
+textarea.editor {
+  width: 100%;
+  height: 62vh;
+  padding: var(--space-3);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--leading-prose);
+  resize: none;
+}
+
+/* --- Paper -------------------------------------------------------------- */
+
+/* The tab holds the document and nothing else, so the source fills it.
+   Positioned, so a section's offsetTop is measured against the scroller
+   that holds it rather than the page. */
+.paper-source {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+.paper-section { scroll-margin-top: var(--space-3); }
+.paper-section .prose { white-space: pre-wrap; }
+
+/* A passage already highlighted, drawn where it was marked rather than
+   only in the list beside the paper. */
+.annot {
+  background: var(--caution-wash);
+  color: inherit;
+  border-radius: 2px;
+}
+
+/* Who the claim was judged against, named above the passage so the
+   passage is not read as a quotation the author chose. */
+.inspector__against {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--text-small);
+}
+.inspector__against-label {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--text-micro);
+}
+.inspector__against-source {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Settings and history, not the judgement. One quiet row, ruled off. */
+.inspector__foot {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: var(--border-w) solid var(--border);
+}
+.inspector__foot .inspector__scale { gap: var(--space-2); }
+.inspector__foot .inspector__scale > .small { white-space: nowrap; }
+
+.rail__title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-title);
+  line-height: var(--leading-tight);
+}
+.rail__entry {
+  padding: var(--space-2);
+  border-bottom: var(--border-w) solid var(--border);
+}
+
+/* A section of the paper panel. Closed, it is one line naming what it
+   holds and how much of it there is. */
+.railsection { margin-top: var(--space-4); border-top: var(--border-w) solid var(--border); }
+.railsection > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--toolbar-h);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-small);
+  list-style: none;
+}
+.railsection > summary::-webkit-details-marker { display: none; }
+.railsection > summary::before {
+  content: "›";
+  display: inline-block;
+  width: 1ch;
+  transition: transform var(--dur-instant) var(--ease-out);
+}
+.railsection[open] > summary::before { transform: rotate(90deg); }
+.railsection > summary:hover { color: var(--text); }
+.railsection__name { flex: 1 1 auto; font-weight: var(--weight-medium); }
+.railsection__count { font-variant-numeric: tabular-nums; }
+
+/* Raised at the selection, so the next step is where the eye already is. */
+.selection-toolbar {
+  position: fixed;
+  z-index: 45;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+
+/* --- Draft -------------------------------------------------------------- */
+
+.toolbar__title {
+  font-weight: var(--weight-medium);
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draft-body { display: flex; flex: 1 1 auto; min-height: 0; }
+
+.editor-scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-4);
+}
+
+/* The editor and its marks share one box, so a rect measured against the
+   editor's own top-left places a mark without correction. */
+.editor-hold {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Marks are drawn behind the text, never into it. Rewriting a line to
+   decorate a sentence costs the browser's own undo and stops the draft
+   behaving like a document. */
+.sentence-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.sentence-mark {
+  position: absolute;
+  border-radius: 2px;
+}
+
+/* Permanent decoration is one hairline under a sentence that needs a
+   decision. Everything else is silent until the pointer arrives. */
+.sentence-mark--danger { box-shadow: inset 0 -2px 0 var(--danger); }
+.sentence-mark--caution { box-shadow: inset 0 -2px 0 var(--caution); }
+.sentence-mark--neutral,
+.sentence-mark--supported { box-shadow: none; }
+.sentence-mark--hover { background: var(--bg-hover); }
+.sentence-mark.current { background: var(--caution-wash); }
+
+/* What is known about one sentence, while the pointer is on it. */
+.sentence-card {
+  position: absolute;
+  z-index: 4;
+  min-width: 22ch;
+  max-width: 46ch;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-float, 0 6px 20px rgb(0 0 0 / 18%));
+  cursor: pointer;
+  animation: menu-in var(--dur-instant) var(--ease-out);
+}
+.sentence-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.sentence-card__verdict {
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+}
+.sentence-card__source {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sentence-card__score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* Reserved from first paint, so a mark appearing shifts no prose. */
+.gutter { position: relative; }
+.gutter__mark {
+  position: absolute;
+  right: 2px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+.gutter__mark.active::before {
+  content: "";
+  position: absolute;
+  inset: -3px -2px;
+  border: var(--border-w) solid var(--accent);
+  border-radius: 3px;
+}
+
+/* The source is the stored value: syntax stays visible, decoration is
+   colour and weight only. */
+.pe {
+  /* Above the marks, which are painted behind the words. flow-root keeps
+     a first line's top margin inside this box: collapsed out, it moves
+     the editor down relative to the overlay and every mark lands high by
+     the height of that margin. */
+  position: relative;
+  z-index: 1;
+  display: flow-root;
+  max-width: var(--measure-prose);
+  font-size: var(--text-prose);
+  line-height: var(--leading-prose);
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.pe:focus-visible { outline: none; }
+.pe__line { min-height: calc(var(--text-prose) * var(--leading-prose)); }
+.pe__line--h1, .pe__line--h2, .pe__line--h3 {
+  font-size: var(--text-title);
+  font-weight: var(--weight-semi);
+  line-height: var(--leading-tight);
+  margin-top: var(--space-4);
+}
+.pe__line--h4, .pe__line--h5, .pe__line--h6 { font-weight: var(--weight-semi); }
+.pe__line--quote { color: var(--text-muted); border-left: 2px solid var(--border); padding-left: var(--space-2); }
+.pe code { font-family: var(--font-mono); font-size: var(--text-mono); }
+
+/* A marker carries the document id, which is what survives a rename and
+   a re-parse, and shows the citation it stands for. The id stays in the
+   text: textContent still reads the source, selecting the marker selects
+   the id, and deleting it deletes the whole reference. */
+.pe .citation[data-cite] {
+  font-size: 0;
+  color: var(--accent);
+}
+.pe .citation[data-cite]::before {
+  content: " (" attr(data-cite) ")";
+  font-size: var(--text-prose);
+}
+/* Reading the underlying marker: hold the pointer on it. */
+.pe .citation[data-cite]:hover {
+  font-size: inherit;
+}
+.pe .citation[data-cite]:hover::before { content: none; }
+
+/* Document-height map of every claim in the draft. */
+.strip { position: relative; }
+.strip__tick {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  border: none;
+  padding: 0;
+  background: var(--border-strong);
+  cursor: pointer;
+}
+.strip__tick--danger { background: var(--danger); }
+.strip__tick--caution { background: var(--caution); }
+.strip__tick--neutral { background: var(--border-strong); }
+
+/* --- Inspector ---------------------------------------------------------- */
+
+.inspector {
+  display: block;
+  padding: var(--space-4);
+  border-left: 2px solid transparent;
+  outline: none;
+}
+/* Focus moving into the inspector is visible, because the keys change
+   meaning when it does. */
+.inspector:focus-visible,
+.inspector:focus-within { border-left-color: var(--accent); }
+
+.inspector__head { display: flex; align-items: center; gap: var(--space-2); }
+.inspector__label { font-size: var(--text-small); }
+.inspector__position { margin-left: auto; color: var(--text-faint); font-size: var(--text-micro); }
+.inspector__sentence { margin: var(--space-3) 0 var(--space-1); line-height: var(--leading-prose); }
+.inspector__source { margin-bottom: var(--space-3); }
+.inspector__note { color: var(--caution); margin-top: var(--space-2); }
+.inspector__suggestion {
+  margin-top: var(--space-3);
+  padding: var(--space-2);
+  border-left: 2px solid var(--accent);
+  background: var(--bg-raised);
+}
+.inspector__scale { margin-top: var(--space-3); }
+.inspector__record { margin-top: var(--space-3); }
+
+/* The evidence is never collapsed, never truncated, and never given its
+   own scrollbar: a second bar on the same edge as the panel's flickers
+   against it under overlay scrollbars. A long passage scrolls the panel,
+   and the actions stay reachable by sticking to the bottom of it. */
+.inspector__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-4);
+  padding: var(--space-3) 0 var(--space-2);
+  background: linear-gradient(to bottom, transparent, var(--bg-sunken) var(--space-3));
+}
+.inspector__actions .btn { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+.inspector__detail { margin-top: var(--space-4); }
+.inspector__detail summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-small);
+}
+
+.retrieved { margin-top: var(--space-5); }
+.retrieved summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-small);
+  margin-bottom: var(--space-2);
+}
+
+.dialog--wide { width: min(760px, calc(100vw - var(--space-6))); max-height: 80vh; overflow-y: auto; }
+
+/* --- Utility ------------------------------------------------------------ */
+
+.stack > * + * { margin-top: var(--space-2); }
+.rowline { display: flex; align-items: center; gap: var(--space-2); }
+.hidden { display: none !important; }
+
+/* --- Paper source ------------------------------------------------------- */
+
+.paper-pdf {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  background: var(--bg-sunken);
+}
+.paper-source--pdf { padding: 0; overflow: hidden; }
+
+.segmented {
+  display: inline-flex;
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.segmented__item {
+  height: var(--input-h);
+  padding: 0 var(--space-3);
+  border: none;
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.segmented__item + .segmented__item { border-left: var(--border-w) solid var(--border-strong); }
+.segmented__item:hover { background: var(--bg-hover); color: var(--text); }
+.segmented__item.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+
+/* A reference the parser could not title shows its raw string, clamped so
+   one bad entry cannot fill the rail. */
+.ref__title { font-weight: var(--weight-medium); }
+.ref__raw {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tab--dragging { opacity: 0.5; }
+.tab--drop { box-shadow: inset 2px 0 0 var(--accent); }

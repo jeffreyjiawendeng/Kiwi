@@ -128,13 +128,28 @@ def permits(settings: ProjectSettings, actor: str, permission: Permission) -> bo
     return role is not None and permission in role.permissions
 
 
+def is_governed(root: Path) -> bool:
+    """Whether this project records who may do what.
+
+    A project with no settings file belongs to whoever is operating it.
+    The checks that hold one person apart from another have nobody to
+    hold apart, and applying them anyway locks a lone reader out of their
+    own work the moment they type their name into the interface.
+    """
+    return settings_path(root).exists()
+
+
 def require(root: Path, permission: Permission, actor: str | None = None) -> str:
     """Confirm the acting identity holds ``permission``. Returns the actor.
 
-    A project with no recorded settings has one owner holding everything,
-    so a workspace used by one person is unaffected by these checks.
+    A project that has recorded no settings has no roles to enforce:
+    whoever operates it owns it. The alternative is that the implicit
+    owner is a fixed name, and putting your own name in locks you out of
+    a project you made.
     """
     who = actor or current_author()
+    if not is_governed(root):
+        return who
     if not permits(read_settings(root), who, permission):
         raise PermissionDenied(f"{who} may not {permission.value}")
     return who

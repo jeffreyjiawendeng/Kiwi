@@ -100,3 +100,41 @@ def test_short_fragments_do_not_become_assertions() -> None:
 def test_commas_inside_one_assertion_do_not_split_it() -> None:
     claim = "The protocol uses elliptic curve cryptography, SHA2, and XOR operations."
     assert decompose(claim) == [claim]
+
+
+def test_a_heading_is_not_part_of_the_claim_beneath_it() -> None:
+    """A heading carries no full stop.
+
+    Splitting on terminal punctuation alone runs it into the paragraph
+    that follows, and the claim sent to the aligner then opens with the
+    heading rather than with what the author asserted.
+    """
+    text = f"# Chapter one\n\nChunking changes retrieval quality [@{DOC_A}].\n"
+    claims = extract_claims(text, PAGE)
+    assert len(claims) == 1
+    assert claims[0].anchor.exact == "Chunking changes retrieval quality"
+
+
+def test_a_heading_with_no_blank_line_after_it_is_still_its_own_block() -> None:
+    text = f"## Method\nChunking changes retrieval quality [@{DOC_A}].\n"
+    assert extract_claims(text, PAGE)[0].anchor.exact == "Chunking changes retrieval quality"
+
+
+def test_each_list_item_is_its_own_claim_without_its_bullet() -> None:
+    text = f"- Retrieval improves [@{DOC_A}]\n- Latency falls [@{DOC_B}]\n"
+    claims = extract_claims(text, PAGE)
+    assert [c.anchor.exact for c in claims] == ["Retrieval improves", "Latency falls"]
+    assert [c.citation for c in claims] == [DOC_A, DOC_B]
+
+
+def test_a_sentence_wrapped_across_lines_stays_one_claim() -> None:
+    text = f"Chunking changes\nretrieval quality [@{DOC_A}].\n"
+    assert extract_claims(text, PAGE)[0].anchor.exact == "Chunking changes\nretrieval quality"
+
+
+def test_a_claims_offsets_cover_the_claim() -> None:
+    """The gutter positions a mark by these offsets, and the editor
+    relocates a quote by them."""
+    text = f"# Head\n\nFirst point [@{DOC_A}]. Second point [@{DOC_B}].\n"
+    for claim in extract_claims(text, PAGE):
+        assert text[claim.anchor.start : claim.anchor.end] == claim.anchor.exact

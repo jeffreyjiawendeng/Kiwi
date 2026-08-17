@@ -6,6 +6,8 @@ operations over HTTP, and serves the bundled web interface.
 
 from __future__ import annotations
 
+import os
+import shutil
 import tempfile
 from collections.abc import Callable
 from dataclasses import replace
@@ -14,9 +16,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, UploadFile
 from fastapi import Path as PathParam
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.datastructures import Headers
+from starlette.responses import Response
+from starlette.types import Scope
 
 from kiwi import __version__
 from kiwi.core import (
@@ -54,9 +59,12 @@ from kiwi.workspace import (
     annotation_to_dict,
     authors,
     claim_to_dict,
+    create_page_folder,
     delete_annotation,
+    forget_project,
     init_project,
     list_known_projects,
+    list_page_folders,
     list_pages,
     list_papers,
     read_annotations,
@@ -69,6 +77,9 @@ from kiwi.workspace import (
     read_verification,
     reference_to_dict,
     register_project,
+    remove_page_folder,
+    rename_page,
+    rename_project,
     resolved_reference_to_dict,
     section_to_dict,
     suggestion_to_dict,
@@ -109,6 +120,16 @@ class AskRequest(BaseModel):
 class OpenProjectRequest(BaseModel):
     path: str
     name: str | None = None
+
+
+class RemoveProjectRequest(BaseModel):
+    path: str
+    delete_files: bool = False
+
+
+class RenameProjectRequest(BaseModel):
+    path: str
+    name: str
 
 
 class AlignRequest(BaseModel):
@@ -178,15 +199,50 @@ class MemberRequest(BaseModel):
     role: str | None = None
 
 
+class RenamePageRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    kind: str  # "notes" or "drafts"
+    relpath: str
+    name: str
+
+
+class PageFolderRequest(BaseModel):
+    project: str = "workspace.kiwi"
+    kind: str  # "notes" or "drafts"
+    relpath: str
+
+
 class PageWriteRequest(BaseModel):
     project: str = "workspace.kiwi"
     content: str
     visibility: str = "private"  # notes only; ignored for drafts
+    # Who wrote it. Recorded once, on the note's first write: a later
+    # writer does not become the author of a note whose visibility the
+    # first author controls. Notes only; ignored for drafts.
+    author: str = ""
 
 
 @app.get("/health")
 def health() -> Json:
     return {"ok": True, "version": __version__}
+
+
+@app.get("/health/generator")
+def generator_health() -> Json:
+    """Whether a Generator is configured.
+
+    Writing an answer and proposing a revision both need one. Without it
+    they return nothing, which is indistinguishable from a failure unless
+    the interface can ask.
+    """
+    model = os.environ.get("KIWI_GENERATOR_MODEL")
+    if not model:
+        return {
+            "ok": False,
+            "detail": "No generator is configured. Set KIWI_GENERATOR_MODEL to enable "
+            "written answers and suggested revisions.",
+        }
+    return {"ok": True, "detail": model}
 
 
 @app.get("/health/ingestor")
@@ -222,6 +278,39 @@ def open_project(request: OpenProjectRequest) -> Json:
     return {"project": register_project(root)}
 
 
+@app.delete("/projects")
+def remove_project(request: RemoveProjectRequest) -> Json:
+    """Forget a project, and delete its folder only when asked.
+
+    Forgetting drops the entry from the list this installation keeps and
+    leaves every file where it is. ``delete_files`` removes the folder
+    and everything in it, including the source PDFs, which is the one
+    operation here that cannot be undone from inside Kiwi.
+    """
+    root = Path(request.path)
+    forgotten = forget_project(root)
+
+    deleted = False
+    if request.delete_files:
+        if not (root / "kiwi.json").is_file():
+            raise HTTPException(
+                status_code=400,
+                detail=f"{root} is not a Kiwi project; refusing to delete the folder",
+            )
+        shutil.rmtree(root)
+        deleted = True
+
+    return {"forgotten": forgotten, "deleted": deleted, "path": str(root)}
+
+
+@app.put("/projects/name")
+def put_project_name(request: RenameProjectRequest) -> Json:
+    """Rename a project. The folder keeps its name on disk."""
+    if not request.name.strip():
+        raise HTTPException(status_code=400, detail="a project needs a name")
+    return rename_project(Path(request.path), request.name.strip())
+
+
 @app.get("/projects/summary")
 def project_summary(project: str = "workspace.kiwi") -> Json:
     """Everything an Explorer view needs for one project: papers, notes,
@@ -233,6 +322,12 @@ def project_summary(project: str = "workspace.kiwi") -> Json:
         "papers": list_papers(root),
         "notes": list_pages(root, "notes"),
         "drafts": list_pages(root, "drafts"),
+        # An empty folder holds no page to find it by, so it is reported
+        # in its own right.
+        "folders": {
+            "notes": list_page_folders(root, "notes"),
+            "drafts": list_page_folders(root, "drafts"),
+        },
     }
 
 
@@ -249,7 +344,13 @@ def get_note(relpath: str, project: str = "workspace.kiwi") -> Json:
 @app.put("/notes/{relpath:path}")
 def put_note(relpath: str, request: PageWriteRequest) -> Json:
     try:
-        return write_note(Path(request.project), relpath, request.content, request.visibility)
+        return write_note(
+            Path(request.project),
+            relpath,
+            request.content,
+            request.visibility,
+            author=request.author or None,
+        )
     except PathOutsideProject as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -581,6 +682,49 @@ def delete_note(relpath: str, project: str = "workspace.kiwi", actor: str | None
     return _removed(lambda: remove_note(Path(project), relpath, actor=actor))
 
 
+@app.post("/pages/rename")
+def post_page_rename(request: RenamePageRequest) -> Json:
+    """Rename a note or a draft. A draft's sidecar moves with it."""
+    try:
+        return rename_page(Path(request.project), request.kind, request.relpath, request.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"not found: {request.relpath}") from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=f"already exists: {request.name}") from exc
+
+
+@app.post("/pages/folder")
+def post_page_folder(request: PageFolderRequest) -> Json:
+    """Create a folder under ``notes/`` or ``drafts/``."""
+    try:
+        return create_page_folder(Path(request.project), request.kind, request.relpath)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=f"already exists: {request.relpath}") from exc
+
+
+@app.delete("/pages/folder")
+def delete_page_folder(request: PageFolderRequest) -> Json:
+    """Remove an empty folder. One holding pages is refused."""
+    try:
+        return remove_page_folder(Path(request.project), request.kind, request.relpath)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PathOutsideProject as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"not found: {request.relpath}") from exc
+    except OSError as exc:
+        raise HTTPException(status_code=409, detail=f"{request.relpath} is not empty") from exc
+
+
 @app.post("/drafts/cite")
 def cite_in_draft(request: CiteInDraftRequest) -> Json:
     """Append a citation to a draft, quoting the passage where given.
@@ -784,12 +928,62 @@ def get_paper(
     }
 
 
+@app.get("/papers/{document_id}/source.pdf", include_in_schema=False)
+def paper_source(
+    document_id: str = PathParam(..., pattern=r"^doc_[0-9a-f]{16}$"),
+    project: str = "workspace.kiwi",
+) -> FileResponse:
+    """The PDF as it was imported.
+
+    The parsed text carries the words and the section tree. It does not
+    carry the figures, the tables, the columns, or the page numbering,
+    and a reader judging a paper needs those. The interface reads this
+    with the browser's own viewer.
+    """
+    path = Path(project) / "papers" / document_id / "source.pdf"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="no source PDF for this paper")
+    # Naming the file without this sends it as an attachment, and the
+    # browser downloads it instead of drawing it in the frame.
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=f"{document_id}.pdf",
+        content_disposition_type="inline",
+    )
+
+
 @app.get("/", include_in_schema=False)
 def root() -> RedirectResponse:
     return RedirectResponse(url="/app/")
 
 
+_STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    """A browser requests this from the origin root, not from /app."""
+    return FileResponse(_STATIC_DIR / "favicon.svg", media_type="image/svg+xml")
+
+
+class _Uncached(StaticFiles):
+    """Serves the interface without letting a browser hold on to it.
+
+    The files are read from disk on each request, so an edit shows on the
+    next reload. A cached copy defeats that, and caching buys nothing
+    across a loopback connection.
+    """
+
+    def is_not_modified(self, response_headers: Headers, request_headers: Headers) -> bool:
+        return False
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+
 # The bundled web interface. Mounted last so it never shadows an API
 # route above.
-_STATIC_DIR = Path(__file__).parent / "static"
-app.mount("/app", StaticFiles(directory=_STATIC_DIR, html=True), name="static")
+app.mount("/app", _Uncached(directory=_STATIC_DIR, html=True), name="static")

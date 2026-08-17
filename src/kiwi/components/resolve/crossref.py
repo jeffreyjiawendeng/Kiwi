@@ -11,6 +11,7 @@ from __future__ import annotations
 import difflib
 import os
 import re
+import time
 from collections.abc import Sequence
 from typing import Any
 
@@ -21,6 +22,14 @@ from kiwi.types import Health, Reference, RefStatus, ResolvedReference
 DEFAULT_BASE_URL = "https://api.crossref.org"
 _TITLE_MATCH_THRESHOLD = 0.6
 _NON_ALNUM = re.compile(r"[^a-z0-9 ]")
+
+# A paper carries a hundred references and a project carries several
+# papers, so one verification pass is hundreds of requests in a row.
+# Crossref answers that with 429, which is a request to slow down rather
+# than a refusal, so it is waited out rather than reported.
+_RETRY_ON = (429, 500, 502, 503, 504)
+_MAX_ATTEMPTS = 4
+_BACKOFF_SECONDS = 2.0
 
 
 def _normalize_title(title: str) -> str:
@@ -113,18 +122,20 @@ class CrossrefResolver:
 
     def resolve(self, reference: Reference) -> ResolvedReference:
         # Network failure never raises here: a verification pass must
-        # complete over a partial network, reporting UNRESOLVED with
-        # detail rather than aborting the rest of the reference list.
+        # complete over a partial network rather than aborting the rest
+        # of the reference list. It reports UNCHECKED, because a request
+        # that failed found nothing out about the reference.
         try:
             work = self._get_by_doi(reference.doi) if reference.doi else self._search(reference)
         except httpx.HTTPError as exc:
             return ResolvedReference(
                 reference=reference,
-                status=RefStatus.UNRESOLVED,
+                status=RefStatus.UNCHECKED,
                 doi=None,
                 metadata={},
-                retraction_notice=f"network error: {exc}",
+                retraction_notice=None,
                 source=self.name,
+                error=str(exc),
             )
 
         if work is None:
@@ -161,10 +172,26 @@ class CrossrefResolver:
         # this resolves sequentially.
         return [self.resolve(reference) for reference in references]
 
+    def _get(self, url: str, params: dict[str, Any] | None = None) -> httpx.Response:
+        """A GET that waits out a throttle instead of failing on it.
+
+        Crossref's ``Retry-After`` is honoured where it sends one, and a
+        doubling delay is used where it does not. The last response is
+        returned whatever it says, so the caller still decides what a 404
+        means.
+        """
+        delay = _BACKOFF_SECONDS
+        for attempt in range(_MAX_ATTEMPTS):
+            response = httpx.get(url, params=params, headers=self._headers(), timeout=self.timeout)
+            if response.status_code not in _RETRY_ON or attempt == _MAX_ATTEMPTS - 1:
+                return response
+            after = response.headers.get("Retry-After")
+            time.sleep(float(after) if after and after.isdigit() else delay)
+            delay *= 2
+        return response
+
     def _get_by_doi(self, doi: str) -> dict[str, Any] | None:
-        response = httpx.get(
-            f"{self.base_url}/works/{doi}", headers=self._headers(), timeout=self.timeout
-        )
+        response = self._get(f"{self.base_url}/works/{doi}")
         if response.status_code == 404:
             return None
         response.raise_for_status()
@@ -177,9 +204,7 @@ class CrossrefResolver:
         params: dict[str, Any] = {"query.bibliographic": reference.title, "rows": 1}
         if reference.authors:
             params["query.author"] = reference.authors[0]
-        response = httpx.get(
-            f"{self.base_url}/works", params=params, headers=self._headers(), timeout=self.timeout
-        )
+        response = self._get(f"{self.base_url}/works", params=params)
         response.raise_for_status()
         items = response.json()["message"]["items"]
         if not items:

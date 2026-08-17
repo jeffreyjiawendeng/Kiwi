@@ -866,19 +866,39 @@ def serve(
     open_browser: bool = typer.Option(
         True, "--open-browser/--no-open-browser", help="Open the web interface on start."
     ),
+    reload: bool = typer.Option(
+        False, "--reload", help="Restart when Python files change. For working on Kiwi itself."
+    ),
 ) -> None:
-    """Run the local HTTP API and the reference web interface at /app."""
+    """Run the local HTTP API and the reference web interface at /app.
+
+    The interface is plain HTML, CSS, and JavaScript read from disk on
+    each request, so an edit to it shows on the next reload of the page.
+    ``--reload`` covers the Python half, which otherwise needs the server
+    restarting by hand.
+    """
     import threading
     import webbrowser
+    from pathlib import Path as _Path
 
     import uvicorn
 
     url = f"http://{host}:{port}/app/"
     typer.echo(f"Web interface: {url}")
+    if reload:
+        typer.echo("Restarting on Python changes. Edits to the interface need no restart.")
     if open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
 
-    uvicorn.run("kiwi.api:app", host=host, port=port)
+    # Watching the package alone keeps an edit to a note or a draft in the
+    # open project from restarting the server under the reader.
+    uvicorn.run(
+        "kiwi.api:app",
+        host=host,
+        port=port,
+        reload=reload,
+        reload_dirs=[str(_Path(__file__).resolve().parent.parent)] if reload else None,
+    )
 
 
 if __name__ == "__main__":

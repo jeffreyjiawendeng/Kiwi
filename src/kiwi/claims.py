@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from itertools import pairwise
 
 from kiwi.types import Alignment, Anchor, Intent
 
@@ -21,6 +22,13 @@ CITATION_RE = re.compile(r"\[@(doc_[0-9a-f]{16})\]")
 
 _SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s+")
 _CONTEXT_CHARS = 32
+
+# A sentence also ends where the Markdown block does. A heading and a
+# list item carry no full stop, so without these a heading joins the
+# paragraph beneath it and the claim reads as though the heading were
+# part of what was asserted.
+_PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
+_BLOCK_LINE = re.compile(r"^[ \t]*(?:#{1,6}[ \t]|[-*+][ \t]|\d+[.)][ \t])", re.MULTILINE)
 
 # Markers that introduce a clause rather than a list item.
 _CLAUSE_BOUNDARY = re.compile(
@@ -132,14 +140,45 @@ def _split_coordination(clause: str) -> list[str]:
     return merged
 
 
+def _block_spans(text: str) -> list[tuple[int, int]]:
+    """Spans between paragraph breaks, with a heading or list item its own
+    block.
+
+    Splitting on terminal punctuation alone runs a heading into the
+    paragraph after it, because a heading has no terminal punctuation to
+    split on.
+    """
+    bounds = {0, len(text)}
+    for match in _PARAGRAPH_BREAK.finditer(text):
+        bounds.update((match.start(), match.end()))
+    for match in _BLOCK_LINE.finditer(text):
+        line_end = text.find("\n", match.start())
+        # Both edges of the marker: what follows a bullet is the claim,
+        # and the bullet itself is not part of what was asserted.
+        bounds.update((match.start(), match.end(), len(text) if line_end == -1 else line_end))
+    return list(pairwise(sorted(bounds)))
+
+
+def _trimmed(text: str, start: int, end: int) -> tuple[int, int]:
+    """The span without its surrounding whitespace, so a claim's offsets
+    cover the claim rather than the blank line before it."""
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    return start, end
+
+
 def _sentence_spans(text: str) -> list[tuple[int, int]]:
     spans: list[tuple[int, int]] = []
-    cursor = 0
-    for match in _SENTENCE_BOUNDARY.finditer(text):
-        spans.append((cursor, match.start()))
-        cursor = match.end()
-    spans.append((cursor, len(text)))
-    return [(s, e) for s, e in spans if text[s:e].strip()]
+    for block_start, block_end in _block_spans(text):
+        block = text[block_start:block_end]
+        cursor = 0
+        for match in _SENTENCE_BOUNDARY.finditer(block):
+            spans.append((block_start + cursor, block_start + match.start()))
+            cursor = match.end()
+        spans.append((block_start + cursor, block_end))
+    return [_trimmed(text, s, e) for s, e in spans if text[s:e].strip()]
 
 
 def extract_claims(text: str, page_id: str) -> list[Claim]:

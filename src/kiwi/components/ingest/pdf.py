@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from kiwi.components.ingest.title import with_title_from_page
 from kiwi.protocols import IngestError
 from kiwi.types import Document, Health, Section
 from kiwi.workspace.format import document_id as compute_document_id
@@ -82,14 +83,17 @@ class PdfIngestor:
                 "which needs optical character recognition that Kiwi does not do."
             )
 
-        return Document(
-            document_id=compute_document_id(source),
-            source_path=source,
-            text=text,
-            sections=sections,
-            references=(),
-            metadata=_metadata(reader, source),
-            parser=f"{PdfIngestor.name}-{pypdf.__version__}",
+        return with_title_from_page(
+            Document(
+                document_id=compute_document_id(source),
+                source_path=source,
+                text=text,
+                sections=sections,
+                references=(),
+                metadata=_metadata(reader, source),
+                parser=f"{PdfIngestor.name}-{pypdf.__version__}",
+            ),
+            source,
         )
 
 

@@ -26,7 +26,13 @@ from pathlib import Path
 from kiwi.permissions import Permission
 from kiwi.workspace import list_pages, read_claims, read_note
 from kiwi.workspace.pages import resolve_within
-from kiwi.workspace.settings import current_author, may_read_note, read_settings, require
+from kiwi.workspace.settings import (
+    current_author,
+    is_governed,
+    may_read_note,
+    read_settings,
+    require,
+)
 from kiwi.workspace.sidecar import sidecar_path
 
 
@@ -109,7 +115,7 @@ def remove_note(project: Path, relpath: str, actor: str | None = None) -> Remova
 
     payload = read_note(project, relpath)
     settings = read_settings(project)
-    if not may_read_note(settings, who, payload):
+    if is_governed(project) and not may_read_note(settings, who, payload):
         raise NotFound(f"no note {relpath} in this project")
 
     if str(payload.get("author") or "") != who:

@@ -722,3 +722,107 @@ def test_deleting_something_absent_is_a_404(tmp_path: Path) -> None:
         client.delete("/papers/doc_0000000000000000", params={"project": str(project)}).status_code
         == 404
     )
+
+
+def test_the_source_pdf_is_served_for_the_viewer(tmp_path: Path) -> None:
+    # The interface reads the PDF with the browser's own viewer, so the
+    # file has to be reachable over the API rather than only on disk.
+    root = tmp_path / "P.kiwi"
+    init_project(root, "P")
+    doc_id = "doc_00000000000000aa"
+    paper = root / "papers" / doc_id
+    paper.mkdir(parents=True)
+    (paper / "source.pdf").write_bytes(b"%PDF-1.4\ntest\n")
+
+    response = client.get(f"/papers/{doc_id}/source.pdf", params={"project": str(root)})
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+    # Sent as an attachment, the browser downloads it instead of drawing
+    # it in the frame the viewer puts it in.
+    assert response.headers["content-disposition"].startswith("inline")
+
+    missing = client.get("/papers/doc_00000000000000bb/source.pdf", params={"project": str(root)})
+    assert missing.status_code == 404
+
+
+def test_a_project_is_forgotten_without_its_files_being_touched(tmp_path: Path) -> None:
+    root = tmp_path / "Forget.kiwi"
+    init_project(root, "Forget")
+    client.post("/projects", json={"path": str(root)})
+
+    body = client.request("DELETE", "/projects", json={"path": str(root)}).json()
+    assert body == {"forgotten": True, "deleted": False, "path": str(root)}
+    assert root.is_dir()
+    assert all(e["path"] != str(root.resolve()) for e in client.get("/projects").json()["projects"])
+
+
+def test_deleting_a_project_removes_the_folder_only_when_asked(tmp_path: Path) -> None:
+    root = tmp_path / "Gone.kiwi"
+    init_project(root, "Gone")
+    (root / "papers" / "doc_1").mkdir(parents=True)
+
+    body = client.request(
+        "DELETE", "/projects", json={"path": str(root), "delete_files": True}
+    ).json()
+    assert body["deleted"] is True
+    assert not root.exists()
+
+
+def test_a_folder_that_is_not_a_project_is_not_deleted(tmp_path: Path) -> None:
+    # The path comes from the interface, and deleting a folder recursively
+    # on the strength of a typed string is not acceptable.
+    ordinary = tmp_path / "Documents"
+    ordinary.mkdir()
+    (ordinary / "thesis.docx").write_text("mine", encoding="utf-8")
+
+    response = client.request(
+        "DELETE", "/projects", json={"path": str(ordinary), "delete_files": True}
+    )
+    assert response.status_code == 400
+    assert ordinary.is_dir()
+    assert (ordinary / "thesis.docx").exists()
+
+
+def test_renaming_a_draft_takes_its_record_with_it(tmp_path: Path) -> None:
+    root = tmp_path / "R.kiwi"
+    init_project(root, "R")
+    client.put("/drafts/one.md", json={"project": str(root), "content": "A claim."})
+    sidecar = root / "drafts" / "one.md.kiwi.json"
+    sidecar.write_text('{"claims": []}', encoding="utf-8")
+
+    body = client.post(
+        "/pages/rename",
+        json={"project": str(root), "kind": "drafts", "relpath": "one.md", "name": "two.md"},
+    )
+    assert body.status_code == 200
+    assert (root / "drafts" / "two.md").is_file()
+    assert not (root / "drafts" / "one.md").exists()
+    assert (root / "drafts" / "two.md.kiwi.json").is_file()
+    assert not sidecar.exists()
+
+
+def test_a_note_records_who_wrote_it(tmp_path: Path) -> None:
+    """Authorship is what a note's visibility rests on.
+
+    Dropped on the way through the route, every note belongs to nobody
+    and the permission that covers editing someone else's cannot apply.
+    """
+    project, _ = _seeded_project(tmp_path)
+    client.put(
+        "/notes/mine.md",
+        json={
+            "project": str(project),
+            "content": "first",
+            "author": "Ada",
+            "visibility": "private",
+        },
+    )
+    assert client.get(f"/notes/mine.md?project={project}").json()["author"] == "Ada"
+
+    # Set once: a later writer does not take it over.
+    client.put(
+        "/notes/mine.md",
+        json={"project": str(project), "content": "second", "author": "Grace"},
+    )
+    assert client.get(f"/notes/mine.md?project={project}").json()["author"] == "Ada"

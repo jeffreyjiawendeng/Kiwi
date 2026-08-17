@@ -46,6 +46,7 @@ def resolved_reference_to_dict(resolved: ResolvedReference) -> Json:
         "metadata": resolved.metadata,
         "retraction_notice": resolved.retraction_notice,
         "source": resolved.source,
+        "error": resolved.error,
     }
 
 
@@ -65,6 +66,7 @@ def resolved_reference_from_dict(data: Json) -> ResolvedReference:
         metadata=data["metadata"],
         retraction_notice=data["retraction_notice"],
         source=data["source"],
+        error=data.get("error"),
     )
 
 
@@ -143,6 +145,12 @@ def write_document(root: Path, document: Document, source: Path) -> Path:
 
     metadata = dict(document.metadata)
     metadata["id"] = document.document_id
+    # A parser that finds no title leaves one behind for every reader to
+    # work around: the file appears as "(untitled)" in every list and
+    # cites as nothing. The file it came from is the only other name it
+    # has, so that is what it takes.
+    if not str(metadata.get("title") or "").strip():
+        metadata["title"] = source.stem
     metadata["kiwi"] = {
         "ingested": _now(),
         "parser": document.parser,
@@ -216,6 +224,10 @@ def _verification_rollup(results: list[ResolvedReference]) -> str:
         return "issues"
     if all(r.status == RefStatus.RESOLVED for r in results):
         return "resolved"
+    # A run that could not reach the resolver has not established
+    # anything about the paper, so it does not roll up as though it had.
+    if any(r.status == RefStatus.UNCHECKED for r in results):
+        return "incomplete"
     return "unresolved"
 
 

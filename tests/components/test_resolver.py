@@ -23,9 +23,12 @@ def _reference(**overrides: object) -> Reference:
     return Reference(**defaults)  # type: ignore[arg-type]
 
 
-def _response(status_code: int, payload: dict | None = None) -> MagicMock:
+def _response(
+    status_code: int, payload: dict | None = None, headers: dict[str, str] | None = None
+) -> MagicMock:
     response = MagicMock(spec=httpx.Response)
     response.status_code = status_code
+    response.headers = headers or {}
     response.json.return_value = payload or {}
     response.raise_for_status.side_effect = (
         None
@@ -109,13 +112,48 @@ def test_resolved_doi_with_diverging_title_is_a_mismatch() -> None:
     assert result.status is RefStatus.MISMATCH
 
 
-def test_network_failure_returns_unresolved_and_never_raises() -> None:
+def test_network_failure_is_unchecked_and_never_raises() -> None:
+    """A request that failed found nothing out about the reference.
+
+    Recording it as UNRESOLVED asserts the work was looked for and not
+    found, which is a different and much stronger claim.
+    """
     reference = _reference(doi="10.1000/example")
     with patch("httpx.get", side_effect=httpx.ConnectError("no route to host")):
         result = CrossrefResolver().resolve(reference)
 
-    assert result.status is RefStatus.UNRESOLVED
-    assert result.retraction_notice is not None and "network error" in result.retraction_notice
+    assert result.status is RefStatus.UNCHECKED
+    assert result.error is not None and "no route" in result.error
+    # A transport failure is not a statement about the work's standing.
+    assert result.retraction_notice is None
+
+
+def test_a_throttled_request_is_waited_out_rather_than_failed() -> None:
+    """One pass is hundreds of requests, and Crossref answers that with
+    429. It means slow down, not no."""
+    throttled = _response(429, {}, headers={"Retry-After": "1"})
+    ok = _response(200, {"message": _work()})
+
+    with (
+        patch("httpx.get", side_effect=[throttled, ok]) as mock_get,
+        patch("time.sleep") as slept,
+    ):
+        result = CrossrefResolver().resolve(_reference(doi="10.1000/example"))
+
+    assert result.status is RefStatus.RESOLVED
+    assert mock_get.call_count == 2
+    slept.assert_called_once_with(1.0)
+
+
+def test_a_throttle_that_never_clears_is_reported_as_unchecked() -> None:
+    with (
+        patch("httpx.get", return_value=_response(429, {})),
+        patch("time.sleep"),
+    ):
+        result = CrossrefResolver().resolve(_reference(doi="10.1000/example"))
+
+    assert result.status is RefStatus.UNCHECKED
+    assert result.error is not None
 
 
 def test_no_doi_falls_back_to_bibliographic_search() -> None:

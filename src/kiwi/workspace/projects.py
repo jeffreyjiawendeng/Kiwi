@@ -43,12 +43,68 @@ def list_known_projects() -> list[Json]:
 
 
 def register_project(root: Path) -> Json:
-    """Add or move ``root`` to the front of the registry."""
+    """Add or move ``root`` to the front of the registry.
+
+    A name already recorded is kept: opening a project is not a rename.
+    The default name is read off the resolved path rather than the one
+    supplied, so a project reached by typing its folder in a different
+    case is still called what the folder is called.
+    """
+    resolved = root.resolve()
+    path = str(resolved)
+    entries = list_known_projects()
+    recorded = next((e.get("name") for e in entries if e["path"] == path), None)
+    entry = {"path": path, "name": recorded or resolved.stem}
+    remaining = [e for e in entries if e["path"] != path]
+    remaining.insert(0, entry)
+    _write_registry(remaining[:_MAX_ENTRIES])
+    return entry
+
+
+def forget_project(root: Path) -> bool:
+    """Drop ``root`` from the registry. The folder is left alone.
+
+    Returns whether an entry was removed.
+    """
     resolved = str(root.resolve())
-    entries = [e for e in list_known_projects() if e["path"] != resolved]
-    entry = {"path": resolved, "name": root.stem}
-    entries.insert(0, entry)
-    _write_registry(entries[:_MAX_ENTRIES])
+    entries = list_known_projects()
+    kept = [e for e in entries if e["path"] != resolved]
+    if len(kept) == len(entries):
+        return False
+    _write_registry(kept)
+    return True
+
+
+def forget_all_projects() -> int:
+    """Empty the registry. Returns how many entries were dropped."""
+    count = len(list_known_projects())
+    _write_registry([])
+    return count
+
+
+def rename_project(root: Path, name: str) -> Json:
+    """Rename a project in the registry and in its own manifest.
+
+    The folder keeps its name on disk: a project is identified by where
+    it is, and moving it is the filesystem's business rather than this
+    application's.
+    """
+    resolved = Path(root).resolve()
+    manifest_path = resolved / "kiwi.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["name"] = name
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    entries = list_known_projects()
+    entry = {"path": str(resolved), "name": name}
+    for i, existing in enumerate(entries):
+        if existing["path"] == entry["path"]:
+            entries[i] = entry
+            break
+    else:
+        entries.insert(0, entry)
+    _write_registry(entries)
     return entry
 
 

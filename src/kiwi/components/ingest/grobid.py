@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 
 from kiwi.components.ingest.tei import parse_tei
+from kiwi.components.ingest.title import with_title_from_page
 from kiwi.protocols import IngestError
 from kiwi.types import Document, Health
 from kiwi.workspace.format import document_id as compute_document_id
@@ -66,12 +67,13 @@ class GrobidIngestor:
             )
 
         try:
-            return parse_tei(
+            document = parse_tei(
                 response.content,
                 document_id=doc_id,
                 source_path=source,
                 parser_version=PARSER_VERSION,
             )
+            return with_title_from_page(document, source)
         except Exception as exc:
             # A malformed or unexpectedly-shaped TEI response must not
             # surface as a partial Document. Only IngestError may escape

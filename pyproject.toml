@@ -1,6 +1,6 @@
 [project]
 name = "kiwi"
-version = "1.6.0"
+version = "1.7.0"
 description = "An open research workspace with verifiable retrieval"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -30,7 +30,16 @@ align = ["transformers>=4.48", "torch>=2.5"]
 kiwi = "kiwi.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8.3", "pytest-cov>=6.0", "ruff>=0.9", "mypy>=1.14", "types-PyYAML>=6.0"]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "types-PyYAML>=6.0",
+    # Renders the web interface. Install its browser with:
+    #   uv run playwright install chromium
+    "playwright>=1.49",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -73,4 +82,5 @@ markers = [
     "requires_grobid: needs a running GROBID service",
     "requires_network: calls an external API",
     "slow: takes over a second",
+    "requires_browser: renders the web interface in headless Chromium",
 ]

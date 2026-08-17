@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -113,6 +114,15 @@ def test_the_review_page_shows_what_a_judgement_needs(tmp_path: Path) -> None:
 def test_an_unverified_source_is_reported_as_such(tmp_path: Path) -> None:
     root, _ = _project(tmp_path)
     assert review_draft(root, "intro.md", actor="wei")[0].source_status == UNVERIFIED
+
+
+def test_a_citation_of_a_paper_the_project_lost_is_unresolved(tmp_path: Path) -> None:
+    # Deleting a paper leaves the drafts citing it untouched, which is
+    # only honest if the citation is then reported as unresolved rather
+    # than as merely unchecked.
+    root, doc_id = _project(tmp_path)
+    shutil.rmtree(root / "papers" / doc_id)
+    assert review_draft(root, "intro.md", actor="wei")[0].source_status == "unresolved"
 
 
 def test_a_draft_with_no_claims_reviews_empty(tmp_path: Path) -> None:

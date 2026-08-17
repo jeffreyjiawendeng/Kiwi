@@ -35,6 +35,14 @@ eval/workspace.kiwi/
 .env.*
 !.env.example
 
+# Interface test project, rebuild with:
+#   uv run python tests/frontend/fixture.py
+Test.kiwi/
+
+# Field test PDFs and project, not part of the repository
+fieldtest/
+FieldTest.kiwi/
+
 # Held-out eval workspace, regenerate with:
 #   kiwi ingest eval/corpus-heldout --project eval/heldout.kiwi
 eval/heldout.kiwi/

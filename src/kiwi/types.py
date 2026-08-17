@@ -97,6 +97,10 @@ class RefStatus(Enum):
     UNRESOLVED = "unresolved"
     RETRACTED = "retracted"
     MISMATCH = "mismatch"
+    # The check did not complete. A rate limit or a dropped connection
+    # says nothing about the reference, and recording it as UNRESOLVED
+    # would assert that the work was looked for and not found.
+    UNCHECKED = "unchecked"
 
 
 @dataclass(frozen=True)
@@ -107,6 +111,9 @@ class ResolvedReference:
     metadata: Json  # CSL-JSON
     retraction_notice: str | None
     source: str  # "crossref", "openalex"
+    # Why a check did not complete. Kept apart from retraction_notice:
+    # one is a fact about the work, the other is a fact about the run.
+    error: str | None = None
 
 
 class Intent(Enum):

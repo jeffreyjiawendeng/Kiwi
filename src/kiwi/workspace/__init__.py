@@ -21,14 +21,24 @@ from kiwi.workspace.format import (
 )
 from kiwi.workspace.pages import (
     PathOutsideProject,
+    create_page_folder,
+    list_page_folders,
     list_pages,
     list_papers,
     read_draft,
     read_note,
+    remove_page_folder,
+    rename_page,
     write_draft,
     write_note,
 )
-from kiwi.workspace.projects import list_known_projects, register_project
+from kiwi.workspace.projects import (
+    forget_all_projects,
+    forget_project,
+    list_known_projects,
+    register_project,
+    rename_project,
+)
 from kiwi.workspace.settings import (
     ProjectSettings,
     current_author,
@@ -65,10 +75,14 @@ __all__ = [
     "annotation_to_dict",
     "authors",
     "claim_to_dict",
+    "create_page_folder",
     "delete_annotation",
     "document_id",
     "init_project",
+    "forget_all_projects",
+    "forget_project",
     "list_known_projects",
+    "list_page_folders",
     "list_pages",
     "list_papers",
     "read_annotations",
@@ -81,6 +95,9 @@ __all__ = [
     "read_verification",
     "reference_to_dict",
     "register_project",
+    "remove_page_folder",
+    "rename_page",
+    "rename_project",
     "resolved_reference_to_dict",
     "section_to_dict",
     "sidecar_path",

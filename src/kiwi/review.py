@@ -21,7 +21,15 @@ from kiwi.claims import Claim
 from kiwi.permissions import Permission
 from kiwi.protocols import Resolver
 from kiwi.suggestions import new_suggestion
-from kiwi.types import Alignment, Anchor, Json, Reference, Suggestion, SuggestionState
+from kiwi.types import (
+    Alignment,
+    Anchor,
+    Json,
+    Reference,
+    RefStatus,
+    Suggestion,
+    SuggestionState,
+)
 from kiwi.workspace import read_claims, read_suggestions, require, write_suggestions
 from kiwi.workspace.settings import permits, read_settings
 from kiwi.workspace.sidecar import read_sidecar, sidecar_path
@@ -111,10 +119,15 @@ def verify_cited_work(
 
 
 def _source(project: Path, citation: str) -> tuple[str, str]:
-    """The cited paper's title and recorded verification status."""
+    """The cited paper's title and recorded verification status.
+
+    A citation naming a paper this project does not hold is reported as
+    unresolved rather than unchecked. Deleting a paper leaves the drafts
+    citing it untouched, and this is where that shows.
+    """
     metadata_path = project / "papers" / citation / "metadata.json"
     if not metadata_path.exists():
-        return citation, UNVERIFIED
+        return citation, RefStatus.UNRESOLVED.value
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     kiwi = metadata.get("kiwi") or {}
     return metadata.get("title") or citation, kiwi.get("source_status") or UNVERIFIED

@@ -1,0 +1,346 @@
+/* ==========================================================================
+   Kiwi — design tokens
+   Drop in before every other stylesheet. No imports, no external fonts.
+
+   Theme is applied via [data-theme] on <html>. Set it from a synchronous
+   inline script in <head>, before first paint, or dark mode flashes white
+   on every navigation:
+
+     <script>
+       var t = localStorage.getItem('kiwi-theme') || 'system';
+       document.documentElement.dataset.theme =
+         t === 'system'
+           ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+           : t;
+     </script>
+   ========================================================================== */
+
+:root {
+  /* --- Type ------------------------------------------------------------- */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
+
+  --text-micro: 11px;
+  --text-small: 12px;
+  --text-mono: 12.5px;
+  --text-body: 13px;
+  --text-title: 16px;
+  --text-evidence: 14px;
+  --text-prose: 15.5px;
+
+  --leading-tight: 1.3;
+  --leading-ui: 1.45;
+  --leading-prose: 1.65;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semi: 600;
+
+  --measure-prose: 68ch;
+
+  /* --- Space ------------------------------------------------------------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* --- Density (compact default; set --density-* on :root to change) ----- */
+  --row-h: 26px;
+  --toolbar-h: 34px;
+  --tab-h: 34px;
+  --input-h: 26px;
+  --titlebar-h: 34px;
+  --statusbar-h: 22px;
+  --nav-w: 44px;
+  --gutter-w: 20px;
+  --strip-w: 6px;
+  --inspector-w: 340px;
+  --rail-w: 300px;
+  --tab-w: 150px;
+
+  /* Column widths are absolute, not in ch: a ch resolves against the
+     font of the element it sits on, and a heading and its values are not
+     always set in the same face. */
+  --col-author: 150px;
+  --col-num: 64px;
+  --col-action: 72px;
+
+  /* --- Shape ------------------------------------------------------------ */
+  --radius-panel: 0;
+  --radius-control: 3px;
+  --border-w: 1px;
+
+  /* --- Motion ----------------------------------------------------------- */
+  --dur-instant: 80ms;
+  --dur-panel: 120ms;
+  --dur-dialog: 140ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --spinner-dur: 700ms;
+}
+
+/* Comfortable density */
+:root[data-density="comfortable"] {
+  --row-h: 32px;
+  --toolbar-h: 38px;
+  --tab-h: 38px;
+  --input-h: 30px;
+  --tab-w: 170px;
+}
+
+/* ==========================================================================
+   Light — warm neutrals, teal accent
+   ========================================================================== */
+
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #FCFBF9;
+  --bg-raised: #FFFFFF;
+  --bg-sunken: #F2F0EC;
+  --bg-hover: #EAE7E1;
+  --bg-active: #E0DCD4;
+
+  --border: #DEDAD2;
+  --border-strong: #C4BFB5;
+
+  --text: #23211E;          /* 15.53:1 on --bg */
+  --text-muted: #6B665E;    /*  5.51:1 */
+  --text-faint: #948E84;    /*  3.14:1 — non-essential text only */
+
+  --accent: #0D7268;        /*  5.60:1 */
+  --accent-hover: #0A5C54;
+  --accent-fg: #FFFFFF;     /*  5.79:1 on --accent */
+  --accent-wash: #E3F0EE;
+
+  --danger: #B3261E;        /*  6.32:1 */
+  --danger-wash: #FBE9E7;
+  --caution: #8A5200;       /*  6.18:1 */
+  --caution-wash: #FBF0DF;
+
+  --shadow-float: 0 4px 12px rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+/* ==========================================================================
+   Dark — warm dark, never #000
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #1B1A18;
+  --bg-raised: #232120;
+  --bg-sunken: #151413;
+  --bg-hover: #2B2926;
+  --bg-active: #343130;
+
+  --border: #33302C;
+  --border-strong: #4A4640;
+
+  --text: #E8E4DD;          /* 13.72:1 on --bg */
+  --text-muted: #A19B91;    /*  6.30:1 */
+  --text-faint: #757068;    /*  3.54:1 — non-essential text only */
+
+  --accent: #4FBDB0;        /*  7.65:1 */
+  --accent-hover: #6BCEC2;
+  --accent-fg: #10201E;     /*  7.41:1 on --accent */
+  --accent-wash: #16302D;
+
+  --danger: #F28B80;        /*  7.27:1 */
+  --danger-wash: #351D1A;
+  --caution: #E0A144;       /*  7.74:1 */
+  --caution-wash: #33260F;
+
+  --shadow-float: 0 4px 14px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+code, kbd, samp, pre, .mono, .id, .doi, .offset {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
+/* ==========================================================================
+   Signals — see 02-signals.md
+   ========================================================================== */
+
+.sig            { display: inline-flex; align-items: center; line-height: 0; }
+.sig--danger    { color: var(--danger); }
+.sig--caution   { color: var(--caution); }
+.sig--neutral   { color: var(--text-muted); }
+
+/* Gutter: reserved from first paint so marks never shift prose. */
+.gutter {
+  width: var(--gutter-w);
+  flex: 0 0 var(--gutter-w);
+  user-select: none;
+}
+.gutter__mark { animation: sig-in var(--dur-instant) var(--ease-out); }
+
+@keyframes sig-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Claim strip: document-height minimap of verification state. */
+.strip      { width: var(--strip-w); flex: 0 0 var(--strip-w); background: var(--bg-sunken); }
+.strip__tick{ height: 3px; width: 100%; background: var(--border); }
+.strip__tick--danger  { background: var(--danger); }
+.strip__tick--caution { background: var(--caution); }
+
+/* A citation gets exactly one inline treatment: accent text. */
+.citation { color: var(--accent); cursor: pointer; }
+
+/* Uncited sentence in a generated answer. No icon, no colour. */
+.uncited { border-bottom: 1px dotted var(--text-faint); }
+
+/* Evidence passage. Never collapsed, never truncated. */
+.evidence {
+  background: var(--bg-sunken);
+  border-left: 2px solid var(--border-strong);
+  padding: var(--space-3);
+  font-size: var(--text-evidence);
+  line-height: var(--leading-prose);
+}
+
+/* Anchor that could not relocate. ~1 in 17 across a parser change. */
+.evidence--detached { color: var(--text-muted); border-left-color: var(--caution); }
+
+/* ==========================================================================
+   Controls
+   ========================================================================== */
+
+.btn {
+  height: var(--input-h);
+  padding: 0 var(--space-3);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out),
+              border-color var(--dur-instant) var(--ease-out);
+}
+.btn:hover      { background: var(--bg-hover); }
+.btn--primary   { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn--primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn--danger    { color: var(--danger); border-color: var(--danger); background: transparent; }
+.btn:disabled   { color: var(--text-faint); cursor: default; background: var(--bg-sunken); }
+
+.input {
+  height: var(--input-h);
+  padding: 0 var(--space-2);
+  border: var(--border-w) solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+}
+.input::placeholder { color: var(--text-faint); }
+
+/* Panels are sharp; controls are slightly rounded. */
+.panel {
+  background: var(--bg-raised);
+  border: var(--border-w) solid var(--border);
+  border-radius: var(--radius-panel);
+}
+.panel--sunken { background: var(--bg-sunken); }
+
+/* Shadows only on genuinely floating layers. */
+.floating {
+  background: var(--bg-raised);
+  border: var(--border-w) solid var(--border);
+  box-shadow: var(--shadow-float);
+}
+
+/* ==========================================================================
+   Progress — nothing under 150ms; see 04-states.md
+   ========================================================================== */
+
+.bar        { height: 2px; background: var(--bg-sunken); overflow: hidden; }
+.bar__fill  { height: 100%; background: var(--accent); transition: width var(--dur-instant) linear; }
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin var(--spinner-dur) linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Skeletons do not pulse. A pulse makes a fast load look slow. */
+.skeleton { background: var(--bg-sunken); height: var(--row-h); }
+
+/* ==========================================================================
+   Errors — persistent, never a toast, never self-dismissing
+   ========================================================================== */
+
+.banner {
+  border-left: 3px solid var(--danger);
+  background: var(--bg-sunken);
+  padding: var(--space-3) var(--space-4);
+}
+.banner--caution { border-left-color: var(--caution); }
+
+/* A missing optional component is a configuration, not a fault. */
+.notice { color: var(--text-muted); font-size: var(--text-small); }
+
+/* ==========================================================================
+   Prose
+   ========================================================================== */
+
+.prose {
+  max-width: var(--measure-prose);
+  font-size: var(--text-prose);
+  line-height: var(--leading-prose);
+}
+
+/* ==========================================================================
+   Accessibility
+   ========================================================================== */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* The spinner becomes a static ring; its label carries the meaning. */
+  .spinner { border-top-color: var(--text-muted); }
+}

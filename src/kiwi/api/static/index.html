@@ -1,84 +1,119 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kiwi</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <script>
+    // Applied before first paint. Reading the stored theme after load
+    // flashes white on every navigation in dark mode.
+    (function () {
+      var stored = localStorage.getItem("kiwi-theme") || "system";
+      var dark = stored === "dark" ||
+        (stored === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+      document.documentElement.dataset.density =
+        localStorage.getItem("kiwi-density") || "compact";
+    })();
+  </script>
+  <link rel="stylesheet" href="tokens.css" />
+  <link rel="stylesheet" href="app.css" />
 </head>
 <body>
   <div id="app">
     <header id="topbar">
       <div id="brand">Kiwi</div>
-      <div id="project-name">No project open</div>
-      <button id="switch-project-btn" class="btn-link">Switch Project</button>
+      <button id="project-name" class="topbar-project" hidden></button>
+      <div id="topbar-spacer"></div>
+      <button id="search-btn" class="btn-quiet" title="Go to file (Ctrl+P)">Go to file…</button>
+      <button id="theme-btn" class="btn-quiet" title="Theme"></button>
     </header>
 
     <div id="body">
-      <nav id="sidebar" hidden>
-        <button class="nav-item" data-view="ask">Ask</button>
-        <button class="nav-item" id="settings-nav-btn">Settings</button>
-
-        <div class="nav-group">
-          <div class="nav-group-title">
-            Papers
-            <button class="btn-icon" id="add-paper-btn" title="Add PDFs">+</button>
-          </div>
-          <input type="file" id="paper-file-input" accept="application/pdf" multiple hidden />
-          <ul id="papers-list" class="nav-list"></ul>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-group-title">
-            Notes
-            <button class="btn-icon" id="new-note-btn" title="New note">+</button>
-          </div>
-          <ul id="notes-list" class="nav-list"></ul>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-group-title">
-            Drafts
-            <button class="btn-icon" id="new-draft-btn" title="New draft">+</button>
-          </div>
-          <ul id="drafts-list" class="nav-list"></ul>
-        </div>
+      <nav id="activitybar" aria-label="Activity">
+        <button class="activity" id="menu-btn" title="Menu" aria-haspopup="true">
+          <span class="activity__icon" data-icon="menu"></span>
+        </button>
+        <div class="activity-sep"></div>
+        <button class="activity" data-view="explorer" title="Explorer">
+          <span class="activity__icon" data-icon="explorer"></span>
+        </button>
+        <button class="activity" data-view="search" title="Search in project">
+          <span class="activity__icon" data-icon="search"></span>
+        </button>
+        <button class="activity" data-view="review" title="Review">
+          <span class="activity__icon" data-icon="review"></span>
+          <span class="activity__badge" id="badge-review" hidden></span>
+        </button>
+        <button class="activity" data-view="references" title="References">
+          <span class="activity__icon" data-icon="references"></span>
+          <span class="activity__badge" id="badge-references" hidden></span>
+        </button>
+        <div class="activity-spacer"></div>
+        <button class="activity" data-opens="project-settings" title="Project settings">
+          <span class="activity__icon" data-icon="gear"></span>
+        </button>
+        <button class="activity" data-opens="user-settings" title="User settings">
+          <span class="activity__icon" data-icon="person"></span>
+        </button>
       </nav>
 
-      <main id="main">
-        <div id="view-launcher" class="view">
-          <h1>Open a project</h1>
-          <p class="muted">Kiwi is local-first: point it at a folder on this machine. A new one is created if it doesn't exist yet.</p>
-          <form id="open-project-form">
-            <label>Project folder path
-              <input type="text" id="open-project-path" placeholder="C:\Users\you\Research\MyProject.kiwi" required />
-            </label>
-            <label>Name (optional)
-              <input type="text" id="open-project-name" placeholder="My Project" />
-            </label>
-            <button type="submit">Open / Create</button>
-          </form>
+      <aside id="panel-left" class="panel">
+        <header class="panel__head">
+          <span class="panel__title" id="left-title"></span>
+          <span class="panel__actions" id="left-actions"></span>
+        </header>
+        <div class="panel__body" id="left-body"></div>
+      </aside>
+      <div class="resizer" id="resize-left" role="separator" aria-orientation="vertical"></div>
 
-          <h2>Recent projects</h2>
-          <ul id="recent-projects" class="recent-list"></ul>
-        </div>
-
-        <div id="view-paper" class="view" hidden></div>
-        <div id="view-note" class="view" hidden></div>
-        <div id="view-draft" class="view" hidden></div>
-        <div id="view-ask" class="view" hidden></div>
-        <div id="view-review" class="view" hidden></div>
-        <div id="view-settings" class="view" hidden></div>
-        <div id="view-empty" class="view" hidden></div>
+      <main id="center" class="panel panel--tabbed">
+        <header class="panel__head tabstrip">
+          <div class="tabs" id="tabs"></div>
+          <span class="panel__actions">
+            <button class="btn-quiet icon-btn" id="tab-prev" title="Previous file (Alt+[)">
+              <span data-icon="left"></span>
+            </button>
+            <button class="btn-quiet icon-btn" id="tab-next" title="Next file (Alt+])">
+              <span data-icon="right"></span>
+            </button>
+            <button class="btn-quiet icon-btn" id="tab-menu" title="More" aria-haspopup="true">
+              <span data-icon="dots"></span>
+            </button>
+          </span>
+        </header>
+        <div class="panel__body" id="center-body"></div>
       </main>
+
+      <div class="resizer" id="resize-right" role="separator" aria-orientation="vertical"></div>
+      <aside id="panel-right" class="panel panel--tabbed" hidden>
+        <header class="panel__head tabstrip">
+          <div class="tabs" id="ai-tabs"></div>
+          <span class="panel__actions">
+            <button class="btn-quiet icon-btn" id="ai-close" title="Close panel">
+              <span data-icon="close"></span>
+            </button>
+          </span>
+        </header>
+        <div class="panel__body" id="ai-body"></div>
+      </aside>
     </div>
 
     <footer id="statusbar">
       <span id="status-left"></span>
-      <span id="status-right"></span>
+      <span id="status-progress"></span>
+      <div id="statusbar-spacer"></div>
+      <span id="status-right" aria-live="polite"></span>
     </footer>
   </div>
 
-  <script src="app.js"></script>
+  <div id="error-stack" aria-live="assertive"></div>
+  <div id="overlay" hidden></div>
+  <div id="menu-layer" hidden></div>
+  <input type="file" id="paper-file-input" accept="application/pdf" multiple hidden />
+  <input type="file" id="page-file-input" accept=".md,.markdown,.txt,text/markdown,text/plain" multiple hidden />
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>

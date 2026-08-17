@@ -27,6 +27,30 @@ uv run pytest -m "requires_grobid or requires_network or not (requires_grobid or
 uv run pytest --override-ini="addopts="
 ```
 
+## Working on the interface
+
+```bash
+uv run kiwi serve --reload
+```
+
+The interface is plain HTML, CSS, and JavaScript with no build step, read from disk on each request. Editing `src/kiwi/api/static/` and reloading the page is the whole loop; the server does not restart and does not need to. Those files are served with `Cache-Control: no-store` and conditional requests are answered in full, so a reload never shows a stale copy.
+
+`--reload` covers the Python half, restarting when anything under `src/kiwi/` changes. It watches the package rather than the working directory, so editing a note or a draft in an open project does not restart the server underneath the reader.
+
+Three tests cover the interface, in increasing order of what they can see.
+
+`tests/test_frontend_contract.py` reads every module as text: a path the interface requests that no route serves, an element it reads that nothing renders, a name imported that is not exported, and a review decision the API would reject.
+
+`tests/test_frontend_smoke.py` loads the modules under Node with a small browser stub and exercises the logic that does not touch the DOM.
+
+`tests/test_frontend_browser.py` renders the application in headless Chromium, opens a project, and visits every view. It watches the console for an error raised inside a handler, and the request log for a view that asks the API for the same thing without end, which is what a renderer re-entering itself looks like. It needs a browser:
+
+```bash
+uv run playwright install chromium
+```
+
+The first two pass on an interface that is completely unusable, which has happened. Prefer adding to the third.
+
 ## Retrieval evaluation
 
 See `eval/README.md` for the corpus, golden set, and current results.

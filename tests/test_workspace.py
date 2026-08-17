@@ -148,3 +148,29 @@ def test_verification_rollup_flags_retracted_and_mismatch(tmp_path: Path) -> Non
 
     metadata = json.loads((root / "papers" / doc_id / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["kiwi"]["verification"] == "issues"
+
+
+def test_a_paper_with_no_parsed_title_takes_the_name_of_its_file(tmp_path: Path) -> None:
+    # GROBID returns no title for some papers. Without a fallback they are
+    # "(untitled)" in every list, which is indistinguishable between two
+    # of them.
+    root = tmp_path / "P.kiwi"
+    init_project(root, "P")
+    source = tmp_path / "openvla.pdf"
+    source.write_bytes(b"%PDF-1.4\n")
+
+    document = Document(
+        document_id="doc_00000000000000ff",
+        source_path=source,
+        metadata={"title": "  "},
+        sections=(),
+        references=(),
+        text="body",
+        parser="grobid-0.8.1",
+    )
+    write_document(root, document, source)
+
+    written = json.loads(
+        (root / "papers" / document.document_id / "metadata.json").read_text(encoding="utf-8")
+    )
+    assert written["title"] == "openvla"

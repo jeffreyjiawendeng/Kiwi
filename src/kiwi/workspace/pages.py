@@ -69,6 +69,46 @@ def list_pages(root: Path, kind: str) -> list[str]:
     return sorted(p.relative_to(base).as_posix() for p in base.rglob("*.md"))
 
 
+def list_page_folders(root: Path, kind: str) -> list[str]:
+    """Relative paths of every folder under ``notes/`` or ``drafts/``.
+
+    Folders are reported separately from pages because an empty one holds
+    no file to find it by, and a folder someone made is not gone until
+    they remove it.
+    """
+    base = root / kind
+    if not base.is_dir():
+        return []
+    return sorted(p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_dir())
+
+
+def create_page_folder(root: Path, kind: str, relpath: str) -> Json:
+    """Create a folder under ``notes/`` or ``drafts/``."""
+    if kind not in ("notes", "drafts"):
+        raise ValueError(f"unknown page kind: {kind}")
+    path = resolve_within(root / kind, relpath)
+    if path.exists():
+        raise FileExistsError(relpath)
+    path.mkdir(parents=True)
+    return {"path": relpath}
+
+
+def remove_page_folder(root: Path, kind: str, relpath: str) -> Json:
+    """Remove an empty folder under ``notes/`` or ``drafts/``.
+
+    A folder holding pages is refused rather than emptied. Deleting a note
+    is checked against who may edit it, and a recursive delete here would
+    step around that check.
+    """
+    if kind not in ("notes", "drafts"):
+        raise ValueError(f"unknown page kind: {kind}")
+    path = resolve_within(root / kind, relpath)
+    if not path.is_dir():
+        raise FileNotFoundError(relpath)
+    path.rmdir()
+    return {"path": relpath}
+
+
 def read_note(root: Path, relpath: str) -> Json:
     path = resolve_within(root / "notes", relpath)
     frontmatter, body = _split_frontmatter(path.read_text(encoding="utf-8"))
@@ -145,6 +185,44 @@ def write_draft(root: Path, relpath: str, content: str) -> Json:
     return {"path": relpath, "page_id": page_id, "created": created, "content": content}
 
 
+def rename_page(root: Path, kind: str, relpath: str, new_relpath: str) -> Json:
+    """Move a note or a draft to a new name within its own folder.
+
+    A draft's sidecar holds its scored claims, its suggestions, and the
+    decisions recorded on it, and is found by the draft's name. It moves
+    with the draft, or the record would be orphaned by a rename.
+    """
+    if kind not in ("notes", "drafts"):
+        raise ValueError(f"unknown page kind: {kind}")
+
+    source = resolve_within(root / kind, relpath)
+    target = resolve_within(root / kind, new_relpath)
+    if not source.is_file():
+        raise FileNotFoundError(relpath)
+    if target.exists():
+        raise FileExistsError(new_relpath)
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    source.rename(target)
+
+    if kind == "drafts":
+        from kiwi.workspace.sidecar import sidecar_path
+
+        old_sidecar = sidecar_path(root, relpath)
+        if old_sidecar.is_file():
+            old_sidecar.rename(sidecar_path(root, new_relpath))
+
+    return {"path": new_relpath, "previous": relpath}
+
+
+def _issued_year(metadata: Json) -> int | None:
+    """The publication year from the CSL date, where the parser found one."""
+    parts = (metadata.get("issued") or {}).get("date-parts") or []
+    if parts and parts[0] and isinstance(parts[0][0], int):
+        return int(parts[0][0])
+    return None
+
+
 def list_papers(root: Path) -> list[Json]:
     """Summary of every paper in the project: enough for an Explorer
     listing without reading each full Document."""
@@ -168,8 +246,14 @@ def list_papers(root: Path) -> list[Json]:
                 "authors": metadata.get("author", []),
                 "sections": len(structure.get("sections", [])),
                 "references": len(structure.get("references", [])),
+                "year": _issued_year(metadata),
                 "parse_status": kiwi_meta.get("parse_status", "unknown"),
+                # Two different facts. ``verification`` is the state of the
+                # references inside this paper; ``source_status`` is the
+                # state of this paper's own record, which is where a
+                # retraction is recorded.
                 "verification": kiwi_meta.get("verification", "unresolved"),
+                "source_status": kiwi_meta.get("source_status", "unverified"),
             }
         )
     return summaries
