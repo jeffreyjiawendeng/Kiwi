@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/account-service-health.schema.json",
+  "title": "Kiwi account service health",
+  "type": "object",
+  "required": ["protocol_version", "service", "status", "database", "migration_version"],
+  "additionalProperties": false,
+  "properties": {
+    "protocol_version": {
+      "const": "1.0.0"
+    },
+    "service": {
+      "const": "kiwi-account"
+    },
+    "status": {
+      "enum": ["ready", "unavailable"]
+    },
+    "database": {
+      "enum": ["ready", "unavailable"]
+    },
+    "migration_version": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{4}_[a-z0-9_]+$"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": ".tsbuild/node",
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "types": ["node"]
+  },
+  "include": ["src/main", "src/preload", "src/worker-bootstrap"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"],
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/commands"
+    },
+    {
+      "path": "../../packages/workspace"
+    },
+    {
+      "path": "../../packages/diagnostics"
+    }
+  ]
+}

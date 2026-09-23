@@ -1,0 +1,26 @@
+{
+  "name": "@kiwi/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "JSON Schemas, shared wire types, and the error catalog",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build && tsc --project tsconfig.test.json",
+    "lint": "eslint src",
+    "test:unit": "vitest run",
+    "schema:check": "vitest run src/schemas.test.ts"
+  }
+}

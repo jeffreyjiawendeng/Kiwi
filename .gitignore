@@ -1,0 +1,19 @@
+node_modules
+
+# Kept on this machine only: the design specification and the notes on how Kiwi was built.
+.internal/
+.kiwi_spec/
+
+# Local secrets. These files hold real provider credentials and must never be committed.
+.env
+.env.*
+!.env.example
+
+# Build and tool output
+dist
+release
+.turbo
+.tsbuild
+*.tsbuildinfo
+.pnpm-store
+scratch

@@ -1,0 +1,9 @@
+.kiwi_spec/
+**/dist/
+**/release/
+**/node_modules/
+**/.tsbuild/
+**/*.tsbuildinfo
+pnpm-lock.yaml
+fixtures/checkers/
+.turbo/

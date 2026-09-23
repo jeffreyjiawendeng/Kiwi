@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/error.schema.json",
+  "title": "Kiwi error",
+  "type": "object",
+  "required": ["code", "message", "details", "retryable", "recovery_actions", "correlation_id"],
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^KIWI_[A-Z0-9_]+$"
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "details": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean"]
+      }
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "recovery_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "correlation_id": {
+      "type": "string"
+    }
+  }
+}

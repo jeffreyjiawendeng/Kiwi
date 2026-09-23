@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/account-auth.schema.json",
+  "title": "Kiwi account authentication message",
+  "$defs": {
+    "email": { "type": "string", "minLength": 1, "maxLength": 254 },
+    "password": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "phone": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "code": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "device_name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "redirect_uri": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "oauth_value": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "code_challenge": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "refresh_token": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "registration_profile": {
+      "type": "object",
+      "required": ["given_name", "family_name", "phone"],
+      "additionalProperties": false,
+      "properties": {
+        "given_name": { "$ref": "#/$defs/name" },
+        "family_name": { "$ref": "#/$defs/name" },
+        "phone": { "$ref": "#/$defs/phone" }
+      }
+    },
+    "account": {
+      "type": "object",
+      "required": ["id", "email", "email_verified"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "$ref": "#/$defs/email" },
+        "email_verified": { "const": true }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["email", "email_kind", "password", "given_name", "family_name", "phone"],
+      "additionalProperties": false,
+      "properties": {
+        "email": { "$ref": "#/$defs/email" },
+        "email_kind": { "enum": ["personal", "institutional"] },
+        "password": { "$ref": "#/$defs/password" },
+        "given_name": { "$ref": "#/$defs/name" },
+        "family_name": { "$ref": "#/$defs/name" },
+        "phone": { "$ref": "#/$defs/phone" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["email", "code", "device_name"],
+      "additionalProperties": false,
+      "properties": {
+        "email": { "$ref": "#/$defs/email" },
+        "code": { "$ref": "#/$defs/code" },
+        "device_name": { "$ref": "#/$defs/device_name" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["email", "password", "device_name"],
+      "additionalProperties": false,
+      "properties": {
+        "email": { "$ref": "#/$defs/email" },
+        "password": { "$ref": "#/$defs/password" },
+        "device_name": { "$ref": "#/$defs/device_name" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["email"],
+      "additionalProperties": false,
+      "properties": { "email": { "$ref": "#/$defs/email" } }
+    },
+    {
+      "type": "object",
+      "required": ["email", "code", "new_password"],
+      "additionalProperties": false,
+      "properties": {
+        "email": { "$ref": "#/$defs/email" },
+        "code": { "$ref": "#/$defs/code" },
+        "new_password": { "$ref": "#/$defs/password" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["redirect_uri", "state", "nonce", "code_challenge"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "enum": ["google", "orcid"] },
+        "registration_profile": { "$ref": "#/$defs/registration_profile" },
+        "redirect_uri": { "$ref": "#/$defs/redirect_uri" },
+        "state": { "$ref": "#/$defs/oauth_value" },
+        "nonce": { "$ref": "#/$defs/oauth_value" },
+        "code_challenge": { "$ref": "#/$defs/code_challenge" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["redirect_uri", "state", "nonce", "code_challenge", "code", "code_verifier"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "enum": ["google", "orcid"] },
+        "registration_profile": { "$ref": "#/$defs/registration_profile" },
+        "redirect_uri": { "$ref": "#/$defs/redirect_uri" },
+        "state": { "$ref": "#/$defs/oauth_value" },
+        "nonce": { "$ref": "#/$defs/oauth_value" },
+        "code_challenge": { "$ref": "#/$defs/code_challenge" },
+        "code": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "code_verifier": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status", "authorization_url"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "browser_required" },
+        "authorization_url": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["refresh_token"],
+      "additionalProperties": false,
+      "properties": { "refresh_token": { "$ref": "#/$defs/refresh_token" } }
+    },
+    {
+      "type": "object",
+      "required": ["status", "next"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "accepted" },
+        "next": { "enum": ["verify_email", "check_email"] },
+        "fixture_code": { "$ref": "#/$defs/code" }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "status",
+        "account",
+        "access_token",
+        "expires_at",
+        "refresh_token",
+        "refresh_expires_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "authenticated" },
+        "account": { "$ref": "#/$defs/account" },
+        "access_token": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "expires_at": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "refresh_token": { "$ref": "#/$defs/refresh_token" },
+        "refresh_expires_at": { "type": "string", "minLength": 1, "maxLength": 50 }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": { "status": { "enum": ["password_reset", "signed_out"] } }
+    },
+    {
+      "type": "object",
+      "required": ["status", "code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "const": "error" },
+        "code": {
+          "enum": [
+            "invalid_input",
+            "password_rejected",
+            "invalid_credentials",
+            "verification_required",
+            "invalid_or_expired_code",
+            "rate_limited",
+            "service_unavailable",
+            "provider_cancelled",
+            "provider_denied",
+            "invalid_callback",
+            "identity_link_required",
+            "session_expired",
+            "refresh_reuse_detected"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "retry_after_seconds": { "type": "integer", "minimum": 1 }
+      }
+    }
+  ]
+}

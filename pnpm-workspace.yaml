@@ -1,0 +1,17 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Every dependency install script is denied until reviewed and recorded here.
+# electron and esbuild fetch or build the binaries they need to run.
+# electron-winstaller builds Squirrel.Windows installers. Kiwi targets NSIS and
+# portable ZIP, so its build step is denied.
+allowBuilds:
+  electron: true
+  esbuild: true
+  electron-winstaller: false
+  argon2: true
+
+minimumReleaseAgeExclude:
+  - eslint@10.9.0
+  - "@testing-library/user-event@14.6.6"

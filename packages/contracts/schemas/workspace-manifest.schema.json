@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/workspace-manifest.schema.json",
+  "title": "Kiwi workspace manifest",
+  "type": "object",
+  "required": ["$schema", "format_version", "workspace_id", "title", "created_at", "updated_at"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "format_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "workspace_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 20
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 20
+    },
+    "default_locale": {
+      "type": "string",
+      "maxLength": 35
+    },
+    "default_time_zone": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "enabled_profiles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_extensions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "schema_packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sensitivity_default": {
+      "enum": ["public", "internal", "confidential", "restricted"]
+    },
+    "features": {
+      "type": "object"
+    }
+  }
+}

@@ -1,0 +1,191 @@
+/* Kiwi's website. The application's palette, one readable column, and nothing that needs a script. */
+
+:root {
+  --surface: #f6f8f5;
+  --surface-raised: #ffffff;
+  --text: #182019;
+  --text-secondary: #5b665c;
+  --border: #d8e0d7;
+  --accent: #2f713d;
+  --accent-hover: #275f33;
+  --accent-text: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #141a15;
+    --surface-raised: #1d241e;
+    --text: #e8ede8;
+    --text-secondary: #aab6ab;
+    --border: #3a453b;
+    --accent: #63a96f;
+    --accent-hover: #78b983;
+    --accent-text: #0f1510;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-family:
+    "Segoe UI Variable Text",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+main,
+.site-header,
+.site-footer {
+  width: min(760px, 100% - 32px);
+  margin: 0 auto;
+}
+
+.site-header {
+  padding: 20px 0 8px;
+}
+
+.site-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 18px;
+  text-decoration: none;
+}
+
+main {
+  padding: 16px 0 48px;
+}
+
+h1 {
+  margin: 16px 0 8px;
+  font-size: 34px;
+  line-height: 1.2;
+}
+
+h2 {
+  margin: 36px 0 8px;
+  font-size: 21px;
+}
+
+h3 {
+  margin: 24px 0 6px;
+  font-size: 17px;
+}
+
+.intro__lede {
+  margin: 0;
+  font-size: 19px;
+  color: var(--text-secondary);
+}
+
+.download {
+  margin: 32px 0 0;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.download h2 {
+  margin-top: 0;
+}
+
+.download__button {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.download__button:hover {
+  background: var(--accent-hover);
+  color: var(--accent-text);
+}
+
+.download__note {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+/* Each feature is a term and a description of it, which is what a definition list is for. */
+.features {
+  margin: 12px 0 0;
+}
+
+.features dt {
+  margin: 14px 0 2px;
+  font-weight: 600;
+}
+
+.features dd {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+pre {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 13px;
+}
+
+code {
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 0.9em;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+th,
+td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.site-footer {
+  padding: 24px 0 40px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.site-footer p {
+  margin: 12px 0 0;
+}

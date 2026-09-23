@@ -1,0 +1,6 @@
+# Unix line endings on every platform. The formatter expects them, and a Windows checkout with
+# automatic conversion would otherwise fail its check on every file.
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.ico binary

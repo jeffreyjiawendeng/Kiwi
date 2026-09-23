@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/command-envelope.schema.json",
+  "title": "Command envelope",
+  "type": "object",
+  "required": ["protocol_version", "request_id", "command", "args"],
+  "additionalProperties": false,
+  "properties": {
+    "protocol_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "workspace_id": {
+      "type": ["string", "null"]
+    },
+    "command": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*)+$",
+      "maxLength": 128
+    },
+    "args": {
+      "type": "object"
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "objects": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "required": ["id", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "content_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "actor": {
+      "type": "object",
+      "required": ["kind", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["local_user", "extension", "automation"]
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "required": ["surface"],
+      "additionalProperties": false,
+      "properties": {
+        "surface": {
+          "enum": ["ui", "cli", "api", "extension", "importer", "ai"]
+        },
+        "extension_id": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        }
+      }
+    },
+    "dry_run": {
+      "type": "boolean"
+    }
+  }
+}

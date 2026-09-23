@@ -1,0 +1,26 @@
+# The same gate a contributor runs before pushing: formatting, lint, types, unit tests, and the
+# fixture check. Windows, because the desktop application targets Windows and nothing else.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Enable the pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.12.0 --activate
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Verify
+        run: pnpm run verify

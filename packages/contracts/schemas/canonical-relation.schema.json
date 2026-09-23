@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/canonical-relation.schema.json",
+  "title": "Canonical typed relation",
+  "type": "object",
+  "required": [
+    "$schema",
+    "id",
+    "type",
+    "schema_version",
+    "subject",
+    "object",
+    "assertion",
+    "created_at",
+    "created_by",
+    "version",
+    "last_event_id",
+    "last_transaction_id",
+    "content_hash"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": { "type": "string", "format": "uri" },
+    "id": { "type": "string", "format": "uuid" },
+    "type": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "subject": {
+      "type": "object",
+      "required": ["object_id"],
+      "additionalProperties": true,
+      "properties": { "object_id": { "type": "string", "format": "uuid" } }
+    },
+    "object": {
+      "type": "object",
+      "required": ["object_id"],
+      "additionalProperties": true,
+      "properties": { "object_id": { "type": "string", "format": "uuid" } }
+    },
+    "assertion": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "created_by": { "type": "string", "minLength": 1, "maxLength": 150 },
+    "version": { "type": "integer", "minimum": 1 },
+    "last_event_id": { "type": "string", "format": "uuid" },
+    "last_transaction_id": { "type": "string", "format": "uuid" },
+    "content_hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  }
+}

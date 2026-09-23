@@ -1,0 +1,36 @@
+appId: dev.kiwi.workspace
+productName: Kiwi
+copyright: Copyright 2026 The Kiwi Authors
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+asar: true
+electronLanguages:
+  - en-US
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip
+      arch: [x64]
+  # Applies to the zip target. The nsis section overrides it for the installer.
+  artifactName: Kiwi-${version}-win-${arch}-portable.${ext}
+nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  shortcutName: Kiwi
+  artifactName: Kiwi-${version}-win-${arch}-setup.${ext}
+# Where an installed Kiwi looks for new versions is not here. When KIWI_UPDATE_URL is set at
+# package time, scripts/package.mjs writes a configuration that extends this one and names it;
+# without it the installed copy never checks for updates, which is right for a copy nobody
+# publishes updates for.

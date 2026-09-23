@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kiwi.dev/schemas/command-result.schema.json",
+  "title": "Command result",
+  "type": "object",
+  "required": ["protocol_version", "request_id", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "protocol_version": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "committed",
+        "committed_with_projection_pending",
+        "accepted_as_job",
+        "no_change",
+        "canceled",
+        "failed"
+      ]
+    },
+    "transaction_id": {
+      "type": "string"
+    },
+    "event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "data": {
+      "type": "object"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error": {
+      "$ref": "https://kiwi.dev/schemas/error.schema.json"
+    },
+    "replayed": {
+      "type": "boolean"
+    }
+  }
+}

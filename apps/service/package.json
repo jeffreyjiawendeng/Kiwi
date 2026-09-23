@@ -1,0 +1,26 @@
+{
+  "name": "@kiwi/service",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Kiwi account and collaboration service",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --build",
+    "typecheck": "tsc --build && tsc --project tsconfig.test.json",
+    "lint": "eslint src",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@kiwi/contracts": "workspace:*",
+    "argon2": "0.45.1",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@kiwi/testkit": "workspace:*",
+    "@types/pg": "8.21.0"
+  }
+}

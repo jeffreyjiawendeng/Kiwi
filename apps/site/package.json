@@ -1,0 +1,15 @@
+{
+  "name": "@kiwi/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Kiwi's website: the download page and the published documents",
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build && tsc --project tsconfig.test.json",
+    "lint": "eslint src",
+    "test:unit": "vitest run",
+    "site": "tsc --build && node dist/build.js"
+  }
+}
